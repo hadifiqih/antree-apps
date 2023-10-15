@@ -690,7 +690,7 @@
                                                                         <p class="mb-2"><strong>Bukti Pembayaran</strong></p>
                                                                         <div class="input-group">
                                                                             <div class="custom-file">
-                                                                            <input type="file" class="custom-file-input" id="exampleInputFile" name="filePelunasan" required>
+                                                                            <input type="file" class="custom-file-input" id="filePelunasan" name="filePelunasan">
                                                                             <label class="custom-file-label" for="exampleInputFile">Pilih File</label>
                                                                             </div>
                                                                         </div>
@@ -708,7 +708,57 @@
                                                         </div>
                                                         <!-- /.modal -->
                                                         @elseif($antrian->payment->payment_status == 'Lunas')
-                                                            <p class="text-success text-center"><i class="fas fa-check-circle"></i> Lunas</p>
+                                                            <button class="btn btn-sm btn-success" data-toggle="modal" data-target="#modalTampilBP{{ $antrian->id }}"><i class="fas fa-check-circle"></i> Lihat</button>
+                                                            <!-- Modal -->
+                                                            <div class="modal fade" id="modalTampilBP{{ $antrian->id }}" tabindex="-1" aria-labelledby="TampilBPLabel{{ $antrian->id }}" aria-hidden="true">
+                                                                <div class="modal-dialog">
+                                                                <div class="modal-content">
+                                                                    <div class="modal-header">
+                                                                    <h5 class="modal-title" id="TampilBPLabel{{ $antrian->id }}">Data Pembayaran</h5>
+                                                                    <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                                                                        <span aria-hidden="true">&times;</span>
+                                                                    </button>
+                                                                    </div>
+                                                                    <div class="modal-body">
+                                                                        <h5 class="text-danger"><strong>Total Omset : </strong>Rp {{ number_format($antrian->omset, 0, ',', '.') }}</h5>
+                                                                        <hr>
+                                                                        @php
+                                                                            $buktiPembayaran = App\Models\Payment::where('ticket_order', $antrian->ticket_order)->get();
+                                                                            $bankList = [
+                                                                                "Transfer BCA",
+                                                                                "Transfer BNI",
+                                                                                "Transfer BRI",
+                                                                                "Transfer Mandiri",
+                                                                                "Saldo Tokopedia",
+                                                                                "Saldo Shopee",
+                                                                                "Saldo Bukalapak",
+                                                                            ];
+                                                                        @endphp
+                                                                        @foreach ($buktiPembayaran as $bukti)
+                                                                            @if(isset($bukti->payment_method) && in_array($bukti->payment_method, $bankList))
+                                                                                <p><strong>Tanggal Pembayaran : </strong>{{ $bukti->created_at }}</p>
+                                                                                <p><strong>Metode Pembayaran : </strong>{{ $bukti->payment_method }}</p>
+                                                                                <p><strong>Jumlah Pembayaran : </strong>Rp {{ number_format($bukti->payment_amount, 0, ',', '.') }}</p>
+                                                                                <p><strong>Bukti Pembayaran : </strong><a href="{{ asset('storage/bukti-pembayaran/'.$bukti->payment_proof) }}" target="_blank">{{ $bukti->payment_proof }}</a></p>
+                                                                                @if(end($buktiPembayaran) == $bukti)
+                                                                                    <hr>
+                                                                                @endif
+                                                                            @elseif($bukti->payment_method == "Tunai" || $bukti->payment_method == "Cash")
+                                                                                <p><strong>Tanggal Pembayaran : </strong>{{ $bukti->created_at }}</p>
+                                                                                <p><strong>Metode Pembayaran : </strong>{{ $bukti->payment_method }}</p>
+                                                                                <p><strong>Jumlah Pembayaran : </strong>Rp {{ number_format($bukti->payment_amount, 0, ',', '.') }}</p>
+                                                                                @if(end($buktiPembayaran) == $bukti)
+                                                                                    <hr>
+                                                                                @endif
+                                                                            @endif
+                                                                        @endforeach
+                                                                    </div>
+                                                                    <div class="modal-footer">
+                                                                    <button type="button" class="btn btn-secondary" data-dismiss="modal">Tutup</button>
+                                                                    </div>
+                                                                </div>
+                                                                </div>
+                                                            </div>
                                                         @endif
                                                 </td>
                                                 @endif

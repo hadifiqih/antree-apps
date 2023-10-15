@@ -19,8 +19,6 @@
                 <span class="text-muted d-flex justify-content-end">Tanggal : {{ substr($date,0,10) }}</span>
             </div>
         </div>
-
-
     </div>
     <div class="card-body">
         <div class="row mb-3">

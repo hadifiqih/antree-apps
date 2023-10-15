@@ -106,7 +106,7 @@
                             <option value="Transfer Mandiri">Transfer Mandiri</option>
                             <option value="Saldo Tokopedia">Marketplace Tokopedia</option>
                             <option value="Saldo Shopee">Marketplace Shopee</option>
-                            <option value="Saldo Shopee">Marketplace Bukalapak</option>
+                            <option value="Saldo Bukalapak">Marketplace Bukalapak</option>
                             <option value="Bayar Waktu Ambil">Bayar Waktu Ambil</option>
                         </select>
                     </div>

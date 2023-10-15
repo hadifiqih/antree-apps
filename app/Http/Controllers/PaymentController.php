@@ -134,15 +134,16 @@ class PaymentController extends Controller
         }
 
         //Menyimpan bukti pembayaran ke dalam folder bukti-pembayaran
-        try {
-        $file = $request->file('filePelunasan');
-        $fileName = time() . '.' . $file->getClientOriginalExtension();
-        $path = 'bukti-pembayaran/' . $fileName;
-        Storage::disk('public')->put($path, $file->get());
-        $payment->payment_proof = $fileName;
-        $payment->save();
-        } catch (Throwable $th) {
-            return redirect()->back()->with('error', 'Bukti pembayaran gagal diupload !');
+        if ($request->hasFile('filePelunasan')) {
+            $file = $request->file('filePelunasan');
+            $fileName = time() . '.' . $file->getClientOriginalExtension();
+            $path = 'bukti-pembayaran/' . $fileName;
+            Storage::disk('public')->put($path, file_get_contents($file));
+            $payment->payment_proof = $fileName;
+            $payment->save();
+        }else{
+            $payment->payment_proof = null;
+            $payment->save();
         }
 
         return redirect()->route('antrian.index')->with('success', 'Pembayaran berhasil diperbarui !');
