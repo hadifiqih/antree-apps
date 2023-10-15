@@ -89,6 +89,12 @@
             <p class="m-0"><strong>Omset : </strong>Rp {{ number_format($antrian->omset, 0, ',', '.') }}</p>
         </div>
         <div class="row border border-2 border-dark p-2 mb-2 rounded-3">
+            <p class="m-0"><strong>Jumlah Pembayaran : </strong>Rp {{ number_format($antrian->payment->payment_amount, 0, ',', '.') }}</p>
+        </div>
+        <div class="row border border-2 border-dark p-2 mb-2 rounded-3">
+            <p class="m-0"><strong>Sisa Pembayaran : </strong>Rp {{ number_format($antrian->payment->remaining_payment, 0, ',', '.') }}</p>
+        </div>
+        <div class="row border border-2 border-dark p-2 mb-2 rounded-3">
             <p class="m-0"><strong>Biaya Pengiriman : </strong>Rp {{ number_format($antrian->payment->shipping_cost, 0, ',', '.') }}</p>
         </div>
         <div class="row border border-2 border-dark p-2 mb-2 rounded-3">
@@ -96,6 +102,18 @@
         </div>
         <div class="row border border-2 border-dark p-2 mb-2 rounded-3">
             <p class="m-0"><strong>Alamat Pengiriman / Pemasangan : </strong></p><textarea rows="2" style="border: 0px">{{ $antrian->alamat_pengiriman }}</textarea>
+        </div>
+        <div class="row border border-2 border-dark p-2 mb-2 rounded-3">
+            <p class="m-0"><strong>Metode Pembayaran : </strong>{{ $antrian->payment->payment_method }}</p>
+        </div>
+        <div class="row border border-2 border-dark p-2 mb-2 rounded-3">
+            <p class="m-0"><strong>Status Pembayaran : </strong>{{ $antrian->payment->payment_status }}</p>
+        </div>
+
+        <div class="row border border-2 border-dark p-2 mb-2 rounded-3">
+            <p class="m-0"><strong>Bukti Pembayaran : </strong></p>
+
+            <img class="" src="{{ asset('storage/bukti-pembayaran/'.$antrian->payment->payment_proof) }}" alt="Bukti Pembayaran" style="width: 30%">
         </div>
         <div class="row p-3">
             <p class="text-muted text-center fst-italic">*Form ini dibuat otomatis oleh sistem. Untuk pertanyaan dapat menghubungi Sales/Admin Workshop</p>

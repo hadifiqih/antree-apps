@@ -77,21 +77,6 @@ class OrderController extends Controller
         return view('page.antrian-desain.index', compact('listDesain', 'listDikerjakan', 'listSelesai', 'listDesainer', 'listRevisi'));
     }
 
-    //Ambil Desain
-    public function ambilDesain(string $id){
-        $antrian = Order::find($id);
-        if($antrian->status == 1 || $antrian->time_taken != null){
-            return redirect()->route('design.index')->with('error-take', 'Design sudah diambil');
-        }else{
-        $antrian->status = 1;
-        $antrian->user_id = auth()->user()->id;
-        $antrian->time_taken = now();
-        $antrian->save();
-
-        return redirect('/design')->with('success-take', 'Design berhasil diambil');
-        }
-    }
-
     public function bagiDesain(Request $request){
 
         $order = Order::find($request->order_id);
@@ -172,7 +157,7 @@ class OrderController extends Controller
             $file = $request->file('refdesain');
             $fileName = time() . '.' . $file->getClientOriginalName();
             $path = 'ref-desain/' . $fileName;
-            Storage::disk('public')->put($path, $file->get());
+            Storage::disk('public')->put($path, file_get_contents($file));
         }
 
         // Jika validasi berhasil, simpan data ke database
@@ -211,16 +196,6 @@ class OrderController extends Controller
             return redirect()->back()->withErrors($validator);
         }
 
-        //ubah nama file
-        if($request->file('refdesain')){
-            $file = $request->file('refdesain');
-            $fileName = time() . '.' . $file->getClientOriginalName();
-            $path = 'ref-desain/' . $fileName;
-            Storage::disk('public')->put($path, $file->get());
-        }else{
-            $fileName = '-';
-        }
-
         $lastId = Order::latest()->first();
         if($lastId == null){
             $lastId = 1;
@@ -228,6 +203,21 @@ class OrderController extends Controller
             $lastId = $lastId->id + 1;
         }
         $ticketOrder = date('Ymd') . $lastId;
+
+        $checkTicket = Order::where('ticket_order', $ticketOrder)->first();
+        if($checkTicket){
+            return redirect()->back()->with('error', 'Oops! Tiket order sudah terdaftar, silahkan ulangi proses tambah order / refresh halaman');
+        }else{
+
+        //ubah nama file
+        if($request->file('refdesain')){
+            $file = $request->file('refdesain');
+            $fileName = time() . '.' . $file->getClientOriginalName();
+            $path = 'ref-desain/' . $fileName;
+            Storage::disk('public')->put($path, file_get_contents($file));
+        }else{
+            $fileName = '-';
+        }
 
         // Jika validasi berhasil, simpan data ke database
         $order = new Order;
@@ -243,8 +233,195 @@ class OrderController extends Controller
         $order->save();
 
         return redirect()->route('design.index')->with('success', 'Project berhasil ditambahkan !');
+        }
     }
 
+    //-------------------------------------------------------------------------------------------------------------
+    // Upload Desain Cetak
+    //-------------------------------------------------------------------------------------------------------------
+
+    //Dropzone untuk upload file cetak
+    public function uploadPrintFile(Request $request)
+    {
+        $orderLama = Order::find($request->id);
+        if($orderLama->file_cetak != null){
+            Storage::disk('public')->delete('file-cetak/' . $orderLama->file_cetak);
+        }
+
+        try{
+            //Menyimpan file cetak dari form dropzone
+            $file = $request->file('fileCetak');
+            $fileName = time() . '.' . $file->getClientOriginalName();
+            $path = 'file-cetak/' . $fileName;
+            Storage::disk('public')->put($path, file_get_contents($file));
+
+            //Menyimpan nama file cetak ke database
+            $order = Order::where('id', $request->id)->first();
+            $order->file_cetak = $fileName;
+            $order->save();
+
+            return response()->json(['success' => $fileName]);
+        }catch(\Exception $e){
+            return redirect()->back()->with('error-filecetak', 'File cetak belum diupload, silahkan ulangi proses upload file cetak');
+        }
+    }
+
+    //Untuk submit dengan link file cetak
+    public function submitLinkUpload(Request $request)
+    {
+        if(!$request->input('linkFileUpload')){
+            return redirect()->back()->with('error-filecetak', 'Link file cetak belum diisi, silahkan ulangi proses upload file cetak');
+        }
+
+        $order = Order::find($request->id);
+
+        if($order->file_cetak != null){
+            Storage::disk('public')->delete('file-cetak/' . $order->file_cetak);
+        }
+
+        $order->file_cetak = $request->input('linkFileUpload');
+        $order->status = 2;
+        $order->time_end = now();
+        $order->save();
+
+        //Jika $order sudah save, baru kurangi design load
+        $employee = Employee::find($order->employee_id);
+
+        if($employee->design_load > 0){
+            //designer load -1
+            $employee->design_load -= 1;
+        }else{
+            //designer load 0
+            $employee->design_load = 0;
+        }
+        $employee->save();
+
+        return redirect()->route('design.index')->with('success', 'Link berhasil disimpan !');
+    }
+
+    //Untuk submit file cetak bukan link
+    public function submitFileCetak($id)
+    {
+        $order = Order::find($id);
+
+        if(!$order->file_cetak){
+            return redirect()->back()->with('error-filecetak', 'File cetak belum diupload, silahkan ulangi proses upload file cetak');
+        }
+
+        try{
+            $order->status = 2;
+            $order->time_end = now();
+            $order->save();
+        }catch(\Exception $e){
+            return redirect()->back()->with('error', 'Gagal mengubah status desain');
+        }
+
+        try{
+            //designer load -1
+            $employee = Employee::find($order->employee_id);
+            if($employee->design_load > 0){
+                $employee->design_load -= 1;
+            }else{
+                $employee->design_load = 0;
+            }
+            $employee->save();
+        }catch(\Exception $e){
+            return redirect()->back()->with('error', 'Gagal mengurangi antrian desainer');
+        }
+
+        // Menampilkan push notifikasi saat selesai
+        $beamsClient = new \Pusher\PushNotifications\PushNotifications(array(
+            "instanceId" => "0958376f-0b36-4f59-adae-c1e55ff3b848",
+            "secretKey" => "9F1455F4576C09A1DE06CBD4E9B3804F9184EF91978F3A9A92D7AD4B71656109",
+        ));
+
+        $publishResponse = $beamsClient->publishToUsers(
+            array("user-". $order->sales->user->id),
+            array("web" => array("notification" => array(
+              "title" => "Kiw Kiw! Desainmu sudah selesai !",
+              "body" => "📣 Cek sekarang, untuk mengantrikan !",
+            )),
+        ));
+
+        return redirect()->route('design.index')->with('success', 'File berhasil diupload');
+    }
+
+    //-------------------------------------------------------------------------------------------------------------
+    // Reupload Desain
+    //-------------------------------------------------------------------------------------------------------------
+
+    //Dropzone untuk reupload file cetak
+    public function reuploadFileDesain(Request $request)
+    {
+        //Hapus file lama / sebelumnya diupload
+        $orderLama = Order::find($request->id);
+        $oldFile = $orderLama->file_cetak;
+        if($oldFile != ""){
+            Storage::disk('public')->delete('file-cetak/' . $oldFile);
+        }
+        //Menyimpan file cetak dari form dropzone
+        $file = $request->file('fileReupload');
+        $fileName = time() . '.' . $file->getClientOriginalName();
+        $path = 'file-cetak/' . $fileName;
+        Storage::disk('public')->put($path, file_get_contents($file));
+
+        $orderLama->file_cetak = $fileName;
+        $orderLama->save();
+
+        return response()->json(['success' => $fileName]);
+    }
+
+    //Untuk submit dengan link file cetak
+    public function submitLinkReupload(Request $request)
+    {
+        if(!$request->input('linkReupload')){
+            return redirect()->back()->with('error-filecetak', 'Link file cetak belum diisi, silahkan ulangi proses upload file cetak');
+        }
+
+            $order = Order::find($request->id);
+
+            if($order->file_cetak != null){
+                Storage::disk('public')->delete('file-cetak/' . $order->file_cetak);
+            }
+
+            $order->file_cetak = $request->input('linkReupload');
+            $order->status = 2;
+            $order->time_end = now();
+            $order->save();
+
+            //designer load -1
+            $employee = Employee::find($order->employee_id);
+            if($employee->design_load > 0){
+                $employee->design_load -= 1;
+            }else{
+                $employee->design_load = 0;
+            }
+            $employee->save();
+
+        return redirect()->route('design.index')->with('success', 'File berhasil diupload !');
+    }
+    //Untuk submit file cetak bukan link
+    public function submitReuploadFile($id)
+    {
+
+        $order = Order::find($id);
+
+        if(!$order->file_cetak){
+            return redirect()->back()->with('error-filecetak', 'File cetak belum diupload, silahkan ulangi proses upload file cetak');
+        }
+
+        $order->status = 2;
+        $order->time_end = now();
+        $order->save();
+
+        return redirect()->route('design.index')->with('success', 'File Reupload berhasil diunggah !');
+    }
+
+    //-------------------------------------------------------------------------------------------------------------
+    // Revisi Desain by Sales
+    //-------------------------------------------------------------------------------------------------------------
+
+    //Menampilkan halaman revisi desain by sales
     public function revisiDesain($id)
     {
         $order = Order::find($id);
@@ -255,7 +432,8 @@ class OrderController extends Controller
         return view('page.order.revisi-desain', compact('order', 'sales', 'job', 'jobs'));
     }
 
-    public function updateRevisiDesain(Request $request, $id)
+    //Update revisi desain by sales
+    public function updateRevisiDesain(Request $request)
     {
         // Validasi form add.blade.php
         $rules = [
@@ -284,7 +462,7 @@ class OrderController extends Controller
             $file = $request->file('accdesain');
             $fileName = time() . '.' . $file->getClientOriginalName();
             $path = 'acc-desain/' . $fileName;
-            Storage::disk('public')->put($path, $file->get());
+            Storage::disk('public')->put($path, file_get_contents($file));
         }
 
         // Jika validasi berhasil, simpan data ke database
@@ -318,68 +496,11 @@ class OrderController extends Controller
         return redirect()->route('design.index')->with('success', 'Design berhasil diupdate');
     }
 
-    public function uploadPrintFile(Request $request)
-    {
-        if($request->file('fileCetak')){
-            //Hapus file lama / sebelumnya diupload
-            $orderLama = Order::find($request->id);
-            $oldFile = $orderLama->file_cetak;
-            if($oldFile != null || $orderLama->ada_revisi == 1){
-                Storage::disk('public')->delete('file-cetak/' . $oldFile);
-            }
-        }
+    //-------------------------------------------------------------------------------------------------------------
+    // Revisi Desain
+    //-------------------------------------------------------------------------------------------------------------
 
-        //Menyimpan file cetak dari form dropzone
-        $file = $request->file('fileCetak');
-        $fileName = time() . '.' . $file->getClientOriginalName();
-        $path = 'file-cetak/' . $fileName;
-        Storage::disk('public')->put($path, $file->get());
-
-        //Menyimpan nama file cetak ke database
-        $order = Order::where('id', $request->id)->first();
-        $order->file_cetak = $fileName;
-        $order->save();
-
-        return response()->json(['success' => $fileName]);
-    }
-
-    public function submitFileCetak($id){
-
-        $order = Order::find($id);
-
-        if(!$order->file_cetak){
-            return redirect()->back()->with('error-filecetak', 'File cetak belum diupload, silahkan ulangi proses upload file cetak');
-        }
-
-        $order->status = 2;
-        $order->time_end = now();
-        $order->save();
-        //designer load -1
-        $employee = Employee::find($order->employee_id);
-        if($employee->design_load > 0){
-            $employee->design_load -= 1;
-        }else{
-            $employee->design_load = 0;
-        }
-        $employee->save();
-
-        // Menampilkan push notifikasi saat selesai
-        $beamsClient = new \Pusher\PushNotifications\PushNotifications(array(
-            "instanceId" => "0958376f-0b36-4f59-adae-c1e55ff3b848",
-            "secretKey" => "9F1455F4576C09A1DE06CBD4E9B3804F9184EF91978F3A9A92D7AD4B71656109",
-        ));
-
-        $publishResponse = $beamsClient->publishToUsers(
-            array("user-". $order->sales->user->id),
-            array("web" => array("notification" => array(
-              "title" => "Kiw Kiw! Desainmu sudah selesai !",
-              "body" => "📣 Cek sekarang, untuk mengantrikan !",
-            )),
-        ));
-
-        return redirect()->route('design.index')->with('success', 'File berhasil diupload');
-    }
-
+    //Dropzone untuk upload revisi file cetak
     public function uploadRevisi(Request $request)
     {
         //Hapus file lama / sebelumnya diupload
@@ -392,7 +513,7 @@ class OrderController extends Controller
         $file = $request->file('fileRevisi');
         $fileName = time() . '.' . $file->getClientOriginalName();
         $path = 'file-cetak/' . $fileName;
-        Storage::disk('public')->put($path, $file->get());
+        Storage::disk('public')->put($path, file_get_contents($file));
 
         $orderLama->file_cetak = $fileName;
         $orderLama->save();
@@ -400,39 +521,7 @@ class OrderController extends Controller
         return response()->json(['success' => $fileName]);
     }
 
-    public function reuploadFileDesain(Request $request){
-        //Hapus file lama / sebelumnya diupload
-        $orderLama = Order::find($request->id);
-        $oldFile = $orderLama->file_cetak;
-        if($oldFile != ""){
-            Storage::disk('public')->delete('file-cetak/' . $oldFile);
-        }
-        //Menyimpan file cetak dari form dropzone
-        $file = $request->file('fileReupload');
-        $fileName = time() . '.' . $file->getClientOriginalName();
-        $path = 'file-cetak/' . $fileName;
-        Storage::disk('public')->put($path, $file->get());
-
-        $orderLama->file_cetak = $fileName;
-        $orderLama->save();
-
-        return response()->json(['success' => $fileName]);
-    }
-
-    public function submitReuploadFile($id){
-        $order = Order::find($id);
-
-        if(!$order->file_cetak){
-            return redirect()->back()->with('error-filecetak', 'File cetak belum diupload, silahkan ulangi proses upload file cetak');
-        }
-
-        $order->status = 2;
-        $order->time_end = now();
-        $order->save();
-
-        return redirect()->route('design.index')->with('success', 'File Reupload berhasil diunggah !');
-    }
-
+    //Untuk submit file revisi cetak bukan link
     public function submitRevisi($id)
     {
         $order = Order::find($id);
@@ -469,11 +558,57 @@ class OrderController extends Controller
         return redirect()->route('design.index')->with('success', 'File revisi desain berhasil diupload');
     }
 
+    //Untuk submit dengan link file cetak
+    public function submitLinkRevisi(Request $request)
+    {
+        $order = Order::find($request->id);
+
+        if($order->file_cetak != null){
+            Storage::disk('public')->delete('file-cetak/' . $order->file_cetak);
+        }
+
+        $order->file_cetak = $request->input('linkRevisi');
+        $order->ada_revisi = 2;
+        $order->save();
+
+        // Menampilkan push notifikasi saat selesai
+        $beamsClient = new \Pusher\PushNotifications\PushNotifications(array(
+            "instanceId" => "0958376f-0b36-4f59-adae-c1e55ff3b848",
+            "secretKey" => "9F1455F4576C09A1DE06CBD4E9B3804F9184EF91978F3A9A92D7AD4B71656109",
+        ));
+
+        $publishResponse = $beamsClient->publishToUsers(
+            array("user-". $order->sales->user->id),
+            array("web" => array("notification" => array(
+              "title" => "Yuhuu.. Revisi Desainmu sudah diunggah !",
+              "body" => "📣 Lihat updatenya sekarang, pastikan tidak ada revisi lagi ya!",
+            )),
+        ));
+
+        $publishResponse = $beamsClient->publishToInterests(
+            array("operator"),
+            array("web" => array("notification" => array(
+              "title" => "Update Revisi Desain !",
+              "body" => "📣 Cek revisi desain dengan nomer tiket ". $order->ticket_order . ", sales ". $order->sales->sales_name,
+            )),
+        ));
+
+        return redirect()->route('design.index')->with('success', 'File revisi desain berhasil diupload');
+    }
+
+    //-------------------------------------------------------------------------------------------------------------
+    // Input Order ke Workshop by Sales
+    //-------------------------------------------------------------------------------------------------------------
+
     public function toAntrian(string $id){
         $order = Order::find($id);
 
         return view ('page.antrian-workshop.create', compact('order'));
     }
+
+    //-------------------------------------------------------------------------------------------------------------
+    // Tambah Produk by Modal by Sales
+    //-------------------------------------------------------------------------------------------------------------
 
     public function tambahProdukByModal(Request $request){
 
@@ -487,6 +622,10 @@ class OrderController extends Controller
             'message' => 'Produk berhasil ditambahkan'
         ]);
     }
+
+    //-------------------------------------------------------------------------------------------------------------
+    // Mendapatkan Produk berdasarkan Kategori by Sales
+    //-------------------------------------------------------------------------------------------------------------
 
     public function getJobsByCategory($category_id){
         $jobs = Job::where('job_type', $category_id)->get();

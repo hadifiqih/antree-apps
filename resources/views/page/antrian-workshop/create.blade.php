@@ -70,7 +70,7 @@
                     </div>
 
                     <div class="form-group">
-                        <label for="keterangan">Keterangan Spesfikasi <span class="text-danger">*</span></label>
+                        <label for="keterangan">Keterangan Spesifikasi <span class="text-danger">*</span></label>
                         <textarea class="form-control" id="keterangan" rows="5" placeholder="Keterangan" name="keterangan"></textarea>
                     </div>
               </div>
@@ -112,7 +112,7 @@
                     </div>
 
                     <div class="form-group">
-                        <label for="jumlahPembayaran">Jumlah Pembayaran Pelanggan <span class="text-danger">*</span></label>
+                        <label for="jumlahPembayaran">Nominal Pembayaran <span class="text-danger">*</span></label>
                         <input type="text" class="form-control rupiah" id="jumlahPembayaran" placeholder="Rp" name="jumlahPembayaran" required>
                     </div>
 
@@ -221,7 +221,7 @@
                         <input type="hidden" name="sales" value="{{ $order->sales_id }}">
                         {{-- Tombol Submit --}}
                         <div class="d-flex align-items-center">
-                            <button id="submitToAntrian" type="submit" class="btn btn-primary"><div id="loader" class="loader" style="display: none;"></div>
+                            <button id="submitToAntrian" type="submit" class="btn btn-primary">Submit<div id="loader" class="loader" style="display: none;"></div>
                         </div>
                     </div>
                 </div>
@@ -279,6 +279,10 @@
                             <option value="Iklan Instagram">Iklan Instagram</option>
                             <option value="Iklan Google">Iklan Google</option>
                             <option value="Iklan Tiktok">Iklan Tiktok</option>
+                            <option value="Salescall">Salescall</option>
+                            <option value="Visit">Visit / Kunjungan</option>
+                            <option value="Follow Up">Follow Up</option>
+                            <option value="RO WA">RO WhatsApp</option>
                             <option value="Lainnya">Lainnya</option>
                         </select>
                     </div>
@@ -423,9 +427,11 @@
         });
     });
 
-    $('#submitToAntrian').on('submit', function(){
+    $('#submitToAntrian').on('submit', function(e){
+        e.preventDefault();
         $(this).find('#submitToAntrian').prop('disabled', true);
         $('#loader').show();
+        this.submit();
     });
 
 });

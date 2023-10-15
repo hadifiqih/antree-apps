@@ -168,19 +168,31 @@ Route::controller(OrderController::class)->group(function(){
     Route::put('/order/{id}', 'update')->name('order.update');
     Route::delete('/order/{id}', 'destroy')->name('order.destroy');
     Route::get('/design', 'antrianDesain')->name('design.index');
-    Route::get('/order/{id}/take', 'ambilDesain')->name('order.take');
-    Route::post('/order/upload-print-file', 'uploadPrintFile')->name('design.upload');
-    Route::get('/design/submit-file-cetak/{id}', 'submitFileCetak')->name('submit.file-cetak');
+
     Route::get('/order/{id}/toAntrian', 'toAntrian')->middleware(['auth', 'checkrole:sales'])->name('order.toAntrian');
     Route::post('/order/tambahProdukByModal', 'tambahProdukByModal')->name('tambahProdukByModal');
     Route::get('/get-jobs-by-category/{category_id}', 'getJobsByCategory')->name('getJobsByCategory');
     Route::post('/order/set-desainer/', 'bagiDesain')->name('order.bagiDesain');
+    //--------------------------------------------
+    // Route File Desain FIX
+    //--------------------------------------------
+    Route::post('/order/upload-print-file', 'uploadPrintFile')->name('design.upload');
+    Route::get('/design/submit-file-cetak/{id}', 'submitFileCetak')->name('submit.file-cetak');
+    Route::post('/submit-link', 'submitLinkUpload')->name('submitLinkUpload');
+    //--------------------------------------------
+    // Route Revisi Desain
+    //--------------------------------------------
     Route::get('/order/{id}/revisi-desain', 'revisiDesain')->name('order.revisiDesain');
     Route::put('/order/{id}/revisi-desain', 'updateRevisiDesain')->name('order.updateRevisiDesain');
-    Route::post('/order/upload-revisi-desain', 'uploadRevisi')->name('order.uploadRevisi');
-    Route::get('/order/{id}/submit-revisi', 'submitRevisi')->middleware('auth')->name('order.submitRevisi');
+    Route::post('/order/upload-revisi-desain', 'uploadRevisi')->name('uploadRevisi');
+    Route::get('/order/{id}/submit-revisi-desain', 'submitRevisi')->name('submitRevisi');
+    Route::post('/order/submit-revisi', 'submitLinkRevisi')->middleware('auth')->name('submitLinkRevisi');
+    //--------------------------------------------
+    // Route Reupload File
+    //--------------------------------------------
     Route::post('/design/reupload-file', 'reuploadFileDesain')->name('design.reuploadFile');
-    Route::get('/design/submit-reupload-file/{id}', 'submitReuploadFile')->name('design.submitReuploadFile');
+    Route::get('/design/submit-reupload-file/{id}', 'submitReuploadFile')->name('submit.reupload');
+    Route::post('/design/submit-reupload-link', 'submitLinkReupload')->name('submitLinkReupload');
 });
 
 Route::controller(AntrianController::class)->group(function(){

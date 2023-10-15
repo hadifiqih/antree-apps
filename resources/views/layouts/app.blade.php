@@ -172,7 +172,7 @@
                 </p>
             </a>
             <ul class="nav nav-treeview">
-                @if(auth()->user()->role == 'sales' || auth()->user()->employee->can_design == 1 || auth()->user()->role == 'desain')
+                @if(auth()->user()->role == 'sales' || auth()->user()->employee->can_design == 1 || auth()->user()->role == 'desain' || auth()->user()->role == 'manager')
                 <li class="nav-item">
                     <a href="{{ route('design.index') }}" class="nav-link {{ request()->routeIs('design.index') || request()->routeIs('order.edit') ? 'active' : '' }}">
                     <i class="far fa-circle nav-icon"></i>
@@ -195,7 +195,7 @@
                 </li>
                 @endif
 
-                @if(auth()->user()->role == 'admin' || auth()->user()->role == 'stempel' || auth()->user()->role == 'advertising' || auth()->user()->role == 'dokumentasi' || auth()->user()->role == 'supervisor')
+                @if(auth()->user()->role == 'admin' || auth()->user()->role == 'stempel' || auth()->user()->role == 'advertising' || auth()->user()->role == 'dokumentasi' || auth()->user()->role == 'supervisor' || auth()->user()->role == 'manager' || auth()->user()->role == 'estimator' || auth()->user()->role == 'staffAdmin')
                 <li class="nav-item">
                     <a href="{{ route('antrian.index') }}" class="nav-link {{ request()->routeIs('antrian.index') || request()->routeIs('antrian.edit') ? 'active' : '' }}">
                     <i class="far fa-circle nav-icon"></i>

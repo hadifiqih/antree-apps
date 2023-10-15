@@ -51,63 +51,113 @@ class ReportController extends Controller
         // return $pdf->download($tanggal . '-laporan-workshop.pdf');
     }
 
-    public function exportLaporanWorkshopPDF(Request $request){
-
-        $jenis = $request->jenis_laporan;
+    public function exportLaporanWorkshopPDF(Request $request)
+    {
         $tempat = $request->tempat_workshop;
         // $tanggalAwal adalah selalu tanggal 1 dari bulan yang dipilih
-        $tanggalAwal = date('Y-m-01');
+        $tanggalAwal = date('Y-m-01 00:00:00');
         // $tanggalAkhir adalah selalu tanggal sekarang dari bulan yang dipilih
-        $tanggalAkhir = date('Y-m-d');
+        $tanggalAkhir = date('Y-m-d 23:59:59');
 
         //Mengambil data antrian dengan relasi customer, sales, payment, operator, finishing, job, order pada tanggal yang dipilih dan menghitung total omset dan total order
-        $antrians = Antrian::with('customer', 'sales', 'payment', 'operator', 'finishing', 'job', 'order')
+        $antrianStempel = Antrian::with('customer', 'sales', 'payment', 'operator', 'finishing', 'job', 'order')
             ->whereBetween('created_at', [$tanggalAwal, $tanggalAkhir])
-            ->whereHas('sales', function ($query) use ($tempat){
-                $query->where('sales_name', 'like', '%' . $tempat . '%');
+            ->where(function ($query) use ($tempat) {
+                $query->whereHas('sales', function ($subquery) use ($tempat) {
+                    $subquery->where('sales_name', 'like', '%' . $tempat . '%');
+                })
+                ->whereHas('job', function ($subquery) {
+                    $subquery->where('job_type', 'Stempel');
+                });
             })
-            ->whereHas('job', function ($query) use ($jenis) {
-                $query->where('job_type', 'like', '%' . $jenis . '%');
+            ->where(function ($query) {
+                $query->where('status', '1')->orWhere('status', '2');
             })
             ->get();
 
-        $totalOmset = 0;
-        $totalQty = 0;
+        $antrianAdvertising = Antrian::with('customer', 'sales', 'payment', 'operator', 'finishing', 'job', 'order')
+            ->whereBetween('created_at', [$tanggalAwal, $tanggalAkhir])
+            ->where(function ($query) use ($tempat) {
+                $query->whereHas('sales', function ($subquery) use ($tempat) {
+                    $subquery->where('sales_name', 'like', '%' . $tempat . '%');
+                })
+                ->whereHas('job', function ($subquery) {
+                    $subquery->where('job_type', 'Advertising');
+                });
+            })
+            ->where(function ($query) {
+                $query->where('status', '1')->orWhere('status', '2');
+            })
+            ->get();
 
-        foreach ($antrians as $antrian) {
-            $totalOmset += $antrian->omset;
-            $totalQty += $antrian->qty;
+
+        $antrianNonStempel = Antrian::with('customer', 'sales', 'payment', 'operator', 'finishing', 'job', 'order')
+            ->whereBetween('created_at', [$tanggalAwal, $tanggalAkhir])
+            ->where(function ($query) use ($tempat) {
+                $query->whereHas('sales', function ($subquery) use ($tempat) {
+                    $subquery->where('sales_name', 'like', '%' . $tempat . '%');
+                })
+                ->whereHas('job', function ($subquery) {
+                    $subquery->where('job_type', 'Non Stempel');
+                });
+            })
+            ->where(function ($query) {
+                $query->where('status', '1')->orWhere('status', '2');
+            })
+            ->get();
+
+        $antrianDigiPrint = Antrian::with('customer', 'sales', 'payment', 'operator', 'finishing', 'job', 'order')
+            ->whereBetween('created_at', [$tanggalAwal, $tanggalAkhir])
+            ->where(function ($query) use ($tempat) {
+                $query->whereHas('sales', function ($subquery) use ($tempat) {
+                    $subquery->where('sales_name', 'like', '%' . $tempat . '%');
+                })
+                ->whereHas('job', function ($subquery) {
+                    $subquery->where('job_type', 'Digital Printing');
+                });
+            })
+            ->where(function ($query) {
+                $query->where('status', '1')->orWhere('status', '2');
+            })
+            ->get();
+
+        //buat beberapa variabel dengan nilai 0 untuk menampung total omset dan total order
+        $totalOmsetStempel = 0;
+        $totalQtyStempel = 0;
+
+        $totalOmsetAdvertising = 0;
+        $totalQtyAdvertising = 0;
+
+        $totalOmsetNonStempel = 0;
+        $totalQtyNonStempel = 0;
+
+        $totalOmsetDigiPrint = 0;
+        $totalQtyDigiPrint = 0;
+
+        //looping untuk menghitung total omset dan total order
+        foreach ($antrianStempel as $antrian) {
+            $totalOmsetStempel += $antrian->omset;
+            $totalQtyStempel += $antrian->qty;
         }
 
-        $pdf = PDF::loadview('page.antrian-workshop.laporan-workshop', compact('antrians', 'totalOmset', 'totalQty', 'tanggalAwal', 'tanggalAkhir', 'jenis', 'tempat'))->setPaper('folio', 'landscape');
-        return $pdf->stream($jenis . " - " . $tempat . " - " . $tanggalAkhir .'.pdf');
+        foreach ($antrianAdvertising as $antrian) {
+            $totalOmsetAdvertising += $antrian->omset;
+            $totalQtyAdvertising += $antrian->qty;
+        }
 
+        foreach ($antrianNonStempel as $antrian) {
+            $totalOmsetNonStempel += $antrian->omset;
+            $totalQtyNonStempel += $antrian->qty;
+        }
 
+        foreach ($antrianDigiPrint as $antrian) {
+            $totalOmsetDigiPrint += $antrian->omset;
+            $totalQtyDigiPrint += $antrian->qty;
+        }
 
-
+        $pdf = PDF::loadview('page.antrian-workshop.laporan-workshop', compact('tanggalAwal', 'tanggalAkhir', 'totalOmsetStempel', 'totalQtyStempel', 'totalOmsetAdvertising', 'totalQtyAdvertising', 'totalOmsetNonStempel', 'totalQtyNonStempel', 'totalOmsetDigiPrint', 'totalQtyDigiPrint', 'antrianStempel', 'antrianNonStempel', 'antrianAdvertising', 'antrianDigiPrint', 'tempat'))->setPaper('folio', 'landscape');
+        return $pdf->stream($tempat .  '_Laporan_Workshop.pdf');
     }
-
-    // public function exportLaporanWorkshopPDF(Request $request)
-    // {
-    //     $tanggal = $request->tanggal;
-    //     $tempat = $request->tempat;
-
-    //     //Mengambil data antrian dengan relasi customer, sales, payment, operator, finishing, job, order pada tanggal yang dipilih dan menghitung total omset dan total order
-    //     $antrians = Antrian::with('customer', 'sales', 'payment', 'operator', 'finishing', 'job', 'order')
-    //         ->whereDate('created_at', $tanggal)
-    //         ->get();
-
-    //     $totalOmset = 0;
-    //     $totalQty = 0;
-    //     foreach ($antrians as $antrian) {
-    //         $totalOmset += $antrian->omset;
-    //         $totalQty += $antrian->qty;
-    //     }
-    //     // return view('page.laporan-workshop', compact('antrians', 'totalOmset', 'totalQty'));
-    //     $pdf = PDF::loadview('page.antrian-workshop.laporan-workshop', compact('antrians', 'totalOmset', 'totalQty', 'tanggal'))->setPaper('folio', 'landscape');
-    //     return $pdf->stream($tanggal . '-laporan-workshop.pdf');
-    //     // return $pdf->download($tanggal . '-laporan-workshop.pdf');
-    // }
 
     public function cetakEspk($id)
     {
@@ -116,7 +166,7 @@ class ReportController extends Controller
             ->first();
 
         $pdf = PDF::loadview('page.antrian-workshop.cetak-spk-workshop', compact('antrian'))->setPaper('folio', 'landscape');
-        return $pdf->stream($antrian->ticket_order . '-espk.pdf');
+        return $pdf->stream("Adm_" . $antrian->ticket_order . "_" . $antrian->order->title . '_espk.pdf');
 
         // return view('page.antrian-workshop.cetak-spk-workshop', compact('antrian'));
     }
@@ -177,6 +227,6 @@ class ReportController extends Controller
             ->first();
      // return view('page.antrian-workshop.form-order', compact('antrian'));
         $pdf = PDF::loadview('page.antrian-workshop.form-order', compact('antrian'))->setPaper('a4', 'portrait');
-        return $pdf->stream($antrian->ticket_order . '-form-order.pdf');
+        return $pdf->stream($antrian->ticket_order . "_" . $antrian->order->title . '_form-order.pdf');
     }
 }

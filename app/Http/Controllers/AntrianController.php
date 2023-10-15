@@ -49,15 +49,14 @@ class AntrianController extends Controller
                             ->where('status', '2')
                             ->where('sales_id', $salesId)
                             ->get();
-
         }
 
         $antrians = Antrian::with('payment','sales', 'customer', 'job', 'design', 'operator', 'finishing', 'order')
             ->orderByDesc('created_at')
             ->where('status', '1')
             ->get();
-        // Ambil data antrian dari database yang memiliki relasi dengan sales, customer, job, design, operator, dan finishing dan statusnya 1 (aktif)
 
+        // Ambil data antrian dari database yang memiliki relasi dengan sales, customer, job, design, operator, dan finishing dan statusnya 1 (aktif)
         $antrianSelesai = Antrian::with('sales', 'customer', 'job', 'design', 'operator', 'finishing', 'order')
                             ->orderByDesc('created_at')
                             ->where('status', '2')
@@ -103,76 +102,92 @@ class AntrianController extends Controller
 
      public function store(Request $request)
      {
+        //Mencari data order berdasarkan id order yang diinputkan
+        $order = Order::where('id', $request->input('idOrder'))->first();
+        $ticketOrder = $order->ticket_order;
+
+        //Melakukan Check Antrian
+        $checkAntrian = Antrian::where('ticket_order', $ticketOrder)->first();
+        if($checkAntrian){
+            return redirect()->back()->with('error', 'Data antrian sudah ada !');
+        }
+
+        //Mengambil data customer berdasarkan nama customer yang diinputkan
         $idCustomer = Customer::where('id', $request->input('nama'))->first();
         if($idCustomer){
+            //Jika customer sudah ada, maka frekuensi order ditambah 1
             $repeat = $idCustomer->frekuensi_order + 1;
             $idCustomer->frekuensi_order = $repeat;
             $idCustomer->save();
         }
 
-        $order = Order::where('id', $request->input('idOrder'))->first();
-        $ticketOrder = $order->ticket_order;
-
+        //Jika ada request file bukti pembayaran, maka simpan file tersebut
         if($request->file('buktiPembayaran')){
         $buktiPembayaran = $request->file('buktiPembayaran');
         $namaBuktiPembayaran = $buktiPembayaran->getClientOriginalName();
-        $namaBuktiPembayaran = Carbon::now()->format('Ymd') . '_' . $namaBuktiPembayaran;
+        $namaBuktiPembayaran = time() . '_' . $namaBuktiPembayaran;
         $path = 'bukti-pembayaran/' . $namaBuktiPembayaran;
-        Storage::disk('public')->put($path, $buktiPembayaran->get());
+        Storage::disk('public')->put($path, file_get_contents($buktiPembayaran));
         }else{
             $namaBuktiPembayaran = null;
         }
 
+        //Membuat payment baru dan menyimpan data pembayaran
         $payment = new Payment();
         $payment->ticket_order = $ticketOrder;
         $totalPembayaran = str_replace(['Rp ', '.'], '', $request->input('totalPembayaran'));
-        $payment->total_payment = $totalPembayaran;
         $pembayaran = str_replace(['Rp ', '.'], '', $request->input('jumlahPembayaran'));
-        $payment->payment_amount = $pembayaran;
+
         // menyimpan inputan biaya jasa pengiriman
         if($request->input('biayaPengiriman') == null){
             $biayaPengiriman = 0;
         }else{
             $biayaPengiriman = str_replace(['Rp ', '.'], '', $request->input('biayaPengiriman'));
         }
-        $payment->shipping_cost = $biayaPengiriman;
+
         // menyimpan inputan biaya jasa pemasangan
         if($request->input('biayaPemasangan') == null){
             $biayaPemasangan = 0;
         }else{
             $biayaPemasangan = str_replace(['Rp ', '.'], '', $request->input('biayaPemasangan'));
         }
-        $payment->installation_cost = $biayaPemasangan;
+
         // menyimpan inputan sisa pembayaran
         $sisaPembayaran = str_replace(['Rp ', '.'], '', $request->input('sisaPembayaran'));
-        $payment->remaining_payment = $sisaPembayaran;
 
         // Menyimpan file purcase order
         if($request->file('filePO')){
             $purchaseOrder = $request->file('filePO');
             $namaPurchaseOrder = $purchaseOrder->getClientOriginalName();
-            $namaPurchaseOrder = Carbon::now()->format('Ymd') . '_' . $namaPurchaseOrder;
+            $namaPurchaseOrder = time() . '_' . $namaPurchaseOrder;
             $path = 'purchase-order/' . $namaPurchaseOrder;
-            Storage::disk('public')->put($path, $purchaseOrder->get());
+            Storage::disk('public')->put($path, file_get_contents($purchaseOrder));
         }else{
             $namaPurchaseOrder = null;
         }
+
+        $payment->total_payment = $totalPembayaran;
+        $payment->payment_amount = $pembayaran;
+        $payment->shipping_cost = $biayaPengiriman;
+        $payment->installation_cost = $biayaPemasangan;
+        $payment->remaining_payment = $sisaPembayaran;
         $payment->payment_method = $request->input('jenisPembayaran');
         $payment->payment_status = $request->input('statusPembayaran');
         $payment->payment_proof = $namaBuktiPembayaran;
-
+        $payment->save();
 
         $accDesain = $request->file('accDesain');
         $namaAccDesain = $accDesain->getClientOriginalName();
-        $namaAccDesain = Carbon::now()->format('Ymd') . '_' . $namaAccDesain;
+        $namaAccDesain = time() . '_' . $namaAccDesain;
         $path = 'acc-desain/' . $namaAccDesain;
-        Storage::disk('public')->put($path, $accDesain->get());
+        Storage::disk('public')->put($path, file_get_contents($accDesain));
 
         $order->acc_desain = $namaAccDesain;
         $order->toWorkshop = 1;
+        $order->save();
 
         $hargaProduk = str_replace(['Rp ', '.'], '', $request->input('hargaProduk'));
-        $omset = str_replace(['Rp ', '.'], '', $request->input('totalPembayaran'));
+        $omset = ((int)$hargaProduk * (int)$request->input('qty')) + (int)$biayaPemasangan;
 
         $antrian = new Antrian();
         $antrian->ticket_order = $ticketOrder;
@@ -191,8 +206,7 @@ class AntrianController extends Controller
         }
         $antrian->harga_produk = $hargaProduk;
         $antrian->save();
-        $order->save();
-        $payment->save();
+
 
         $user = User::where('role', 'admin')->first();
         $user->notify(new AntrianWorkshop($antrian, $order, $payment));
@@ -399,7 +413,7 @@ class AntrianController extends Controller
         foreach($files as $file){
             $filename = time()."_".$file->getClientOriginalName();
             $path = 'dokumentasi/'.$filename;
-            Storage::disk('public')->put($path, $file->get());
+            Storage::disk('public')->put($path, file_get_contents($file));
 
             $dokumentasi = new Documentation();
             $dokumentasi->antrian_id = $id;
@@ -447,7 +461,7 @@ class AntrianController extends Controller
         $gambar = $request->file('fileGambar');
         $namaGambar = time()."_".$gambar->getClientOriginalName();
         $pathGambar = 'dokum-proses/'.$namaGambar;
-        Storage::disk('public')->put($pathGambar, $gambar->get());
+        Storage::disk('public')->put($pathGambar, file_get_contents($gambar));
         }else{
             $namaGambar = null;
         }
@@ -456,7 +470,7 @@ class AntrianController extends Controller
         $video = $request->file('fileVideo');
         $namaVideo = time()."_".$video->getClientOriginalName();
         $pathVideo = 'dokum-proses/'.$namaVideo;
-        Storage::disk('public')->put($pathVideo, $video->get());
+        Storage::disk('public')->put($pathVideo, file_get_contents($video));
         }else{
             $namaVideo = null;
         }
@@ -513,19 +527,19 @@ class AntrianController extends Controller
     }
 
     public function reminderProgress(){
-        $beamsClient = new \Pusher\PushNotifications\PushNotifications(array(
-            "instanceId" => "0958376f-0b36-4f59-adae-c1e55ff3b848",
-            "secretKey" => "9F1455F4576C09A1DE06CBD4E9B3804F9184EF91978F3A9A92D7AD4B71656109",
-        ));
+        // $beamsClient = new \Pusher\PushNotifications\PushNotifications(array(
+        //     "instanceId" => "0958376f-0b36-4f59-adae-c1e55ff3b848",
+        //     "secretKey" => "9F1455F4576C09A1DE06CBD4E9B3804F9184EF91978F3A9A92D7AD4B71656109",
+        // ));
 
-        $publishResponse = $beamsClient->publishToInterests(
-            array("operator"),
-            array("web" => array("notification" => array(
-              "title" => "🔔 Kring.. Reminder!",
-              "body" => "Yuk cek progress pekerjaanmu sekarang, jangan lupa upload progressnya ya !",
-              "deep_link" => "https://interatama.my.id/",
-            )),
-        ));
+        // $publishResponse = $beamsClient->publishToInterests(
+        //     array("operator"),
+        //     array("web" => array("notification" => array(
+        //       "title" => "🔔 Kring.. Reminder!",
+        //       "body" => "Yuk cek progress pekerjaanmu sekarang, jangan lupa upload progressnya ya !",
+        //       "deep_link" => "https://interatama.my.id/",
+        //     )),
+        // ));
 
         return response()->json('success', 200);
     }

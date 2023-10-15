@@ -45,12 +45,14 @@
             <option value="Stempel">Stempel</option>
             <option value="Non Stempel">Non Stempel</option>
             <option value="Advertising">Advertising</option>
+            <option value="Digital Printing">Digital Printing</option>
         </select>
       </div>
 
       <div class="mb-3">
         <label for="job" class="form-label">Jenis Produk <span class="text-danger">*</span></label>
-        <select class="custom-select rounded-2" name="job" id="job" required>
+        <br>
+        <select class="custom-select rounded-0" name="job" id="job" required>
 
         </select>
       </div>
@@ -68,6 +70,7 @@
         <input class="form-check-input" type="radio" name="jenisPekerjaan" id="inlineRadio1" value="baru" required>
         <label class="form-check-label" for="inlineRadio1">Desain Baru</label>
       </div>
+
       <div class="form-check form-check-inline mb-3">
         <input class="form-check-input" type="radio" name="jenisPekerjaan" id="inlineRadio2" value="edit" required>
         <label class="form-check-label" for="inlineRadio2">Edit Desain</label>
@@ -103,7 +106,7 @@
 
       {{-- Tombol Submit --}}
         <div class="d-flex align-items-center">
-            <input type="submit" class="btn btn-primary submitButton"><div id="loader" class="loader m-2" style="display: none;"></div>
+            <input type="submit" class="btn btn-primary submitButton" value="Submit"><div id="loader" class="loader m-2" style="display: none;"></div>
         </div>
     </form>
   </div>
@@ -131,12 +134,13 @@
                     <option value="Stempel">Stempel</option>
                     <option value="Advertising">Advertising</option>
                     <option value="Non Stempel">Non Stempel</option>
+                    <option value="Digital Printing">Digital Printing</option>
                 </select>
             </div>
         </div>
         <div class="modal-footer">
             <button type="button" class="btn btn-secondary" data-dismiss="modal">Batal</button>
-            <input type="submit" class="btn btn-primary submitButton" value="Tambah Produk"><span id="loader" class="loader" style="display: none;"></span>
+            <input type="submit" class="btn btn-primary submitButton" value="Tambah Produk"><div id="loader" class="loader" style="display: none;"></div>
         </div>
         </form>
         </div>
@@ -151,9 +155,11 @@
   $(document).ready(function() {
     bsCustomFileInput.init();
 
-    $('#formOrder').on('submit', function() {
-      $(this).find('input[type="submit"]').prop('disabled', true);
-      $('#loader').show();
+    $('#formOrder').on('submit', function(e) {
+        e.preventDefault();
+        $('.submitButton').attr('disabled', true);
+        $('.loader').show();
+        this.submit();
     });
 
     $('#produkForm').submit(function(e) {
@@ -161,8 +167,16 @@
       var modalNamaProduk = $('#modalNamaProduk').val();
       var modalJenisProduk = $('#modalJenisProduk').val();
 
-      $('.submitButton').prop('disabled', true);
-      $('.loader').show();
+      if(modalNamaProduk == '' || modalJenisProduk == '') {
+        Swal.fire({
+            icon: 'error',
+            title: 'Oops...',
+            text: 'Harap isi semua inputan!',
+        });
+        $('.submitButton').attr('disabled', false);
+        $('.loader').hide();
+        return false;
+      }
 
       $.ajax({
         url: "{{ route('tambahProdukByModal') }}",
@@ -201,7 +215,6 @@
         }
       });
     });
-
   });
 </script>
 <script>
@@ -232,5 +245,4 @@
         }
     });
 </script>
-
 @endsection

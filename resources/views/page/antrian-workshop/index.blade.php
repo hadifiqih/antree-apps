@@ -106,7 +106,11 @@
                                                     <p class="text-success">{{ $antrian->ticket_order }}</p>
                                                 @endif
                                                 </td>
-                                                <td>{{ $antrian->sales->sales_name }}</td>
+                                                <td>{{ $antrian->sales->sales_name }}
+                                                @if($antrian->order->is_priority == 1)
+                                                    <span><i class="fas fa-star text-warning"></i></span>
+                                                @endif
+                                                </td>
                                                 <td>{{ $antrian->job->job_name }} <button type="button" class="btn btn-sm btn-primary" data-toggle="modal" data-target="#detailAntrian{{ $antrian->id }}"><i class="fas fa-info-circle"></i></button></td>
                                                 <td>{{ $antrian->qty }}</td>
 
@@ -114,12 +118,22 @@
 
                                                 {{-- File dari Desainer --}}
                                                 <td class="text-center">
-                                                    @if($antrian->order->ada_revisi == 0)
-                                                    <a class="btn btn-dark btn-sm" href="{{ route('design.download', $antrian->id) }}">Download</a>
-                                                    @elseif($antrian->order->ada_revisi == 1)
-                                                    <a class="btn btn-secondary btn-sm disabled" href="#">Download</a><span class="text-danger text-sm">(Sedang Direvisi)</span>
-                                                    @elseif($antrian->order->ada_revisi == 2)
-                                                    <a class="btn btn-success btn-sm" href="{{ route('design.download', $antrian->id) }}">Download</a><span class="text-danger text-sm">(Sudah Direvisi)</span>
+                                                    @if($antrian->order->link_file == null)
+                                                        @if($antrian->order->ada_revisi == 0)
+                                                        <a class="btn btn-dark btn-sm" href="{{ route('design.download', $antrian->id) }}">Download</a>
+                                                        @elseif($antrian->order->ada_revisi == 1)
+                                                        <span class="text-danger text-sm">(Sedang Direvisi)</span>
+                                                        @elseif($antrian->order->ada_revisi == 2)
+                                                        <a class="btn btn-success btn-sm" href="{{ route('design.download', $antrian->id) }}">Download</a><span class="text-danger text-sm">(Sudah Direvisi)</span>
+                                                        @endif
+                                                    @else
+                                                        @if($antrian->order->ada_revisi == 0)
+                                                        <a class="btn btn-dark btn-sm" href="{{ $antrian->order->link_file }}" target="_blank">Akses Link</a>
+                                                        @elseif($antrian->order->ada_revisi == 1)
+                                                        <span class="text-danger text-sm">(Sedang Direvisi)</span>
+                                                        @elseif($antrian->order->ada_revisi == 2)
+                                                        <a class="btn btn-success btn-sm" href="{{ $antrian->order->link_file }}" target="_blank">Akses Link</a><span class="text-danger text-sm">(Sudah Direvisi)</span>
+                                                        @endif
                                                     @endif
                                                 </td>
 
@@ -131,7 +145,7 @@
                                                         </td>
                                                     @elseif($antrian->design_id == null && $antrian->is_aman == 1)
                                                         <td>
-                                                            <a class="btn bg-success btn-sm disabled" href="#">File Desain Aman</a>
+                                                            <p class="text-success"><i class="fas fa-check-circle"></i> File Desain Aman</p>
                                                         </td>
                                                     @elseif($antrian->design_id == null && $antrian->is_aman == 0)
                                                         <td>
@@ -339,6 +353,18 @@
                                                 <input type="text" class="form-control" value="{{ $antrian->customer->nama }}" readonly>
                                             </div>
                                             <div class="form-group">
+                                                <label for="form-label">Telepon/WA</label>
+                                                <input type="text" class="form-control" value="{{ $antrian->customer->telepon }}" readonly>
+                                            </div>
+                                            <div class="form-group">
+                                                <label for="form-label">Alamat Pelanggan</label>
+                                                <textarea class="form-control" rows="3" readonly>{{ $antrian->customer->alamat }}</textarea>
+                                            </div>
+                                            <div class="form-group">
+                                                <label for="form-label">Sumber Pelanggan</label>
+                                                <input type="text" class="form-control" value="{{ $antrian->customer->infoPelanggan }}" readonly>
+                                            </div>
+                                            <div class="form-group">
                                                 <label for="form-label">Nama Produk</label>
                                                 <input type="text" class="form-control" value="{{ $antrian->job->job_name }}" readonly>
                                             </div>
@@ -502,6 +528,18 @@
                                                 <input type="text" class="form-control" value="Rp {{ number_format($antrian->harga_produk, 0, ',', '.') }}" readonly>
                                             </div>
                                             <div class="form-group">
+                                                <label>Status Pembayaran</label>
+                                                <input type="text" class="form-control" value="{{ $antrian->payment->payment_status }}" readonly>
+                                            </div>
+                                            <div class="form-group">
+                                                <label>Metode Pembayaran</label>
+                                                <input type="text" class="form-control" value="{{ $antrian->payment->payment_method }}" readonly>
+                                            </div>
+                                            <div class="form-group">
+                                                <label>Sisa Pembayaran</label>
+                                                <input type="text" class="form-control" value="Rp {{ number_format($antrian->payment->remaining_payment, 0, ',', '.') }}" readonly>
+                                            </div>
+                                            <div class="form-group">
                                                 <label>Biaya Jasa Pasang</label>
                                                 <input type="text" class="form-control" value="Rp {{ $antrian->payment->installation_cost == null ? '-' : number_format($antrian->payment->installation_cost, 0, ',', '.') }}" readonly>
                                             </div>
@@ -567,7 +605,11 @@
                                             <tr>
                                                 <td>{{ $antrian->ticket_order }}</td>
                                                 <td>{{ $antrian->order->title }}</td>
-                                                <td>{{ $antrian->sales->sales_name }}</td>
+                                                <td>{{ $antrian->sales->sales_name }}
+                                                    @if($antrian->order->is_priority == 1)
+                                                    <span><i class="fas fa-star text-warning"></i></span>
+                                                    @endif
+                                                </td>
                                                 <td>{{ $antrian->job->job_name }} <button class="btn btn-primary btn-sm" data-target="#detailAntrianSelesai{{ $antrian->id }}" data-toggle="modal"><i class="fas fa-info-circle"></i></button></td>
 
                                                 <td class="text-center">
@@ -1006,7 +1048,7 @@
                         $paymentProof = \App\Models\Payment::where('ticket_order', $antrian->ticket_order)->get();
                     @endphp
                     @foreach ($paymentProof as $item)
-                    <img class="img-fluid" src="storage/bukti-pembayaran/{{ $item->payment_proof }}">
+                    <img class="img-fluid" src="{{ asset('storage/bukti-pembayaran/'.$item->payment_proof) }}">
                     @endforeach
                 </div>
                 <div class="modal-footer justify-content-between">
