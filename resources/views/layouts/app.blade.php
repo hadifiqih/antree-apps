@@ -188,6 +188,11 @@
                     </a>
                 </li>
                 <li class="nav-item">
+                    <a href="{{ route('antrian.service') }}" class="nav-link {{ request()->routeIs('antrian.service') ? 'active' : '' }}">
+                    <i class="far fa-circle nav-icon"></i>
+                    <p>Antrian Service</p>
+                </li>
+                <li class="nav-item">
                     <a href="{{ route('report.sales') }}" class="nav-link {{ request()->routeIs('report.sales') ? 'active' : '' }}">
                     <i class="far fa-circle nav-icon"></i>
                     <p>Ringkasan Penjualan</p>
@@ -303,7 +308,7 @@
 <script src="{{ asset('adminlte') }}/plugins/datatables-buttons/js/buttons.html5.min.js"></script>
 <script src="{{ asset('adminlte') }}/plugins/datatables-buttons/js/buttons.print.min.js"></script>
 <script src="{{ asset('adminlte') }}/plugins/datatables-buttons/js/buttons.colVis.min.js"></script>
-@yield('script')
+
 {{-- Select2 --}}
 <script src="https://cdn.jsdelivr.net/npm/select2@4.0.13/dist/js/select2.min.js"></script>
 
@@ -350,6 +355,7 @@
           window.location.href = "{{ route('auth.logout') }}";
         }
     }
+
 </script>
 <script src="https://js.pusher.com/beams/1.0/push-notifications-cdn.js"></script>
 <script>
@@ -421,4 +427,5 @@
 </script>
 
 </body>
+@yield('script')
 </html>

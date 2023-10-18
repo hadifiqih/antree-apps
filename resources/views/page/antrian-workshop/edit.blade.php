@@ -41,13 +41,14 @@
     @method('PUT')
     <div class="row ml-1">
       <h6 class="font-weight-bold">Pilih Operator :</h6>
-      @if($operators != null)
+      @if($operators != null && $operators != "rekanan")
       @foreach($operators as $operator)
       <div class="col-sm">
         <div class="form-check">
             @php
                 $isCheckedOperator = is_array($operatorId) && in_array($operator->employee->id, $operatorId);
                 $rekananOperator = is_array($operatorId) && in_array('rekanan', $operatorId);
+
             @endphp
             <input class="form-check-input" type="checkbox" id="operator{{ $operator->employee->id }}" name="operator[]" value="{{ $operator->employee->id }}" {{ $isCheckedOperator ? 'checked' : '' }}>
             <label for="operator{{ $operator->employee->id }}" class="form-check-label">{{ $operator->employee->name }}</label>
@@ -61,6 +62,17 @@
         </div>
       </div>
     </div>
+    @elseif($operators == "rekanan")
+        @php
+            $operatorDigiPrint = in_array('rekanan', $operatorId);
+        @endphp
+      <div class="col-sm">
+        <div class="form-check">
+          <input class="form-check-input" type="checkbox" id="operatorRekanan" name="operator[]" value="rekanan" {{ $operatorDigiPrint ? 'checked' : '' }}>
+          <label for="operatorRekanan" class="form-check-label">Rekanan</label>
+        </div>
+      </div>
+      </div>
     @else
     -
     @endif
@@ -69,13 +81,14 @@
 
     <div class="row ml-1">
       <h6 class="font-weight-bold">Pilih Finishing :</h6>
-      @if($operators != null)
+      @if($operators != null && $operators != "rekanan")
       @foreach($operators as $finishing)
       <div class="col-sm">
         <div class="form-check">
             @php
                 $isCheckedFinishing = is_array($finisherId) && in_array($finishing->employee->id, $finisherId);
                 $rekananFinishing = is_array($finisherId) && in_array('rekanan', $finisherId);
+                $finishingDigiPrint = in_array('rekanan', $finisherId);
             @endphp
             <input class="form-check-input" type="checkbox" id="finishing{{ $finishing->employee->id }}" name="finisher[]" value="{{ $finishing->employee->id }}" {{ $isCheckedFinishing ? 'checked' : '' }}>
             <label for="finishing{{ $finishing->employee->id }}" class="form-check-label">{{ $finishing->employee->name }}</label>
@@ -89,6 +102,17 @@
         </div>
       </div>
     </div>
+    @elseif($operators == "rekanan")
+        @php
+            $finishingDigiPrint = in_array('rekanan', $finisherId);
+        @endphp
+        <div class="col-sm">
+            <div class="form-check">
+                <input class="form-check-input" type="checkbox" id="finishingRekanan" name="finisher[]" value="rekanan" {{ $finishingDigiPrint ? 'checked' : '' }}>
+                <label for="finishingRekanan" class="form-check-label">Rekanan</label>
+            </div>
+        </div>
+        </div>
     @else
     -
     @endif
@@ -122,6 +146,7 @@
             $isCheckedS = is_array($tempat) && in_array('Surabaya', $tempat);
             $isCheckedK = is_array($tempat) && in_array('Kediri', $tempat);
             $isCheckedM = is_array($tempat) && in_array('Malang', $tempat);
+            $isCheckedSido = is_array($tempat) && in_array('Sidoarjo', $tempat);
         @endphp
         <div class="col-sm">
             <div class="form-check">
@@ -139,6 +164,12 @@
             <div class="form-check">
                 <input class="form-check-input" type="checkbox" id="malang" name="tempat[]" value="Malang" {{ $isCheckedM ? 'checked' : '' }}>
                 <label for="malang" class="form-check-label">Malang</label>
+            </div>
+        </div>
+        <div class="col-sm">
+            <div class="form-check">
+                <input class="form-check-input" type="checkbox" id="sidoarjo" name="tempat[]" value="Sidoarjo" {{ $isCheckedSido ? 'checked' : '' }}>
+                <label for="sidoarjo" class="form-check-label">Sidoarjo</label>
             </div>
         </div>
     </div>

@@ -178,13 +178,11 @@ class ReportController extends Controller
 
         $totalOmset = 0;
 
-        $date = date('Y-m-d'). ' 00:00:00';
+        $date = date('Y-m-d');
 
         $antrians = Antrian::with('payment', 'order', 'sales', 'customer', 'job', 'design', 'operator', 'finishing')
-            ->orderByDesc('created_at')
-            ->where('status', '1')
+            ->whereDate('created_at', $date)
             ->where('sales_id', $salesId)
-            ->where('created_at', '>=', $date)
             ->get();
 
         foreach ($antrians as $antrian) {
@@ -199,17 +197,15 @@ class ReportController extends Controller
         if(request()->has('tanggal')) {
             $date = request('tanggal');
         } else {
-            $date = date('Y-m-d'). ' 00:00:00';
+            $date = date('Y-m-d');
         }
 
         $sales = Sales::where('user_id', auth()->user()->id)->first();
         $salesId = $sales->id;
 
         $antrians = Antrian::with('payment', 'order', 'sales', 'customer', 'job', 'design', 'operator', 'finishing')
-            ->orderByDesc('created_at')
-            ->where('status', '1')
+            ->whereDate('created_at', $date)
             ->where('sales_id', $salesId)
-            ->where('created_at', '>=', $date)
             ->get();
 
         $totalOmset = 0;
@@ -225,7 +221,7 @@ class ReportController extends Controller
      $antrian = Antrian::with('customer', 'sales', 'payment', 'operator', 'finishing', 'job', 'order')
             ->where('ticket_order', $id)
             ->first();
-     // return view('page.antrian-workshop.form-order', compact('antrian'));
+    //  return view('page.antrian-workshop.form-order', compact('antrian'));
         $pdf = PDF::loadview('page.antrian-workshop.form-order', compact('antrian'))->setPaper('a4', 'portrait');
         return $pdf->stream($antrian->ticket_order . "_" . $antrian->order->title . '_form-order.pdf');
     }

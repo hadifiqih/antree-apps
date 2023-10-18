@@ -22,6 +22,9 @@
             font-weight: bold;
             margin: 0;
         }
+        .spesifikasi {
+            white-space: pre-line;
+        }
 
         .info {
             margin-top: 20px;
@@ -195,7 +198,7 @@
                 </tr>
                 <tr>
                     <th class="table-header">Deskripsi</th>
-                    <td>: {{ $antrian->note }}</td>
+                    <td class="spesifikasi">: {{ $antrian->note }}</td>
                 </tr>
                 <tr>
                     <th class="table-header">Lokasi Workshop</th>

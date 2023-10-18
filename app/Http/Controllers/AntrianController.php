@@ -49,20 +49,50 @@ class AntrianController extends Controller
                             ->where('status', '2')
                             ->where('sales_id', $salesId)
                             ->get();
-        }
-
-        $antrians = Antrian::with('payment','sales', 'customer', 'job', 'design', 'operator', 'finishing', 'order')
+        }else{
+            $antrians = Antrian::with('payment', 'order', 'sales', 'customer', 'job', 'design', 'operator', 'finishing')
             ->orderByDesc('created_at')
             ->where('status', '1')
             ->get();
 
-        // Ambil data antrian dari database yang memiliki relasi dengan sales, customer, job, design, operator, dan finishing dan statusnya 1 (aktif)
-        $antrianSelesai = Antrian::with('sales', 'customer', 'job', 'design', 'operator', 'finishing', 'order')
+            $antrianSelesai = Antrian::with('sales', 'customer', 'job', 'design', 'operator', 'finishing', 'order')
                             ->orderByDesc('created_at')
                             ->where('status', '2')
                             ->get();
+        }
 
         return view('page.antrian-workshop.index', compact('antrians', 'antrianSelesai'));
+    }
+
+    public function filterProcess(Request $request)
+    {
+        $jobType = $request->input('kategori');
+
+        $antrians = Antrian::with('payment','sales', 'customer', 'job', 'design', 'operator', 'finishing', 'order')
+            ->whereHas('job', function ($query) use ($jobType) {
+                $query->where('job_type', $jobType);
+            })
+            ->where('status', '1')
+            ->get();
+
+        $antrianSelesai = Antrian::with('payment','sales', 'customer', 'job', 'design', 'operator', 'finishing', 'order')
+            ->whereHas('job', function ($query) use ($jobType) {
+                $query->where('job_type', $jobType);
+            })
+            ->where('status', '2')
+            ->get();
+
+        $filtered = $jobType;
+
+        return view('page.antrian-workshop.index', compact('antrians', 'antrianSelesai', 'filtered'));
+    }
+
+    public function serviceIndex(){
+        $fileBaruMasuk = Antrian::with('payment', 'order', 'sales', 'customer', 'job', 'design', 'operator', 'finishing')
+        ->get();
+
+
+        return redirect()->route('page.antrian-service.index');
     }
 
     public function estimatorIndex(){
@@ -236,6 +266,8 @@ class AntrianController extends Controller
 
         if($jenis == 'non stempel'){
             $operators = User::where('role', 'stempel')->orWhere('role', 'advertising')->with('employee')->get();
+        }elseif($jenis == 'digital printing'){
+            $operators = 'rekanan';
         }else{
             $operators = User::where('role', $jenis)->with('employee')->get();
         }
