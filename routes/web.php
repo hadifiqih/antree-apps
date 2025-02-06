@@ -158,7 +158,7 @@ Route::controller(ReportController::class)->group(function(){
     Route::get('/antrian/omset-global-sales', 'omsetGlobalSales')->name('omset.globalSales');
     Route::get('/antrian/omset-percabang', 'omsetPerCabang')->name('omset.perCabang');
     Route::get('/antrian/omset-perproduk', 'omsetPerProduk')->name('omset.perProduk');
-		
+
 	Route::get('/export-excel/workshop', 'exportExcel')->name('exportExcel.workshop');
 	Route::get('/export-excel/customer', 'customerExcel')->name('exportExcel.customer');
 	Route::get('/export-excel/hasil-iklan', 'hasilIklanExcel')->name('exportExcel.hasilIklan');
@@ -226,7 +226,6 @@ Route::controller(AntrianController::class)->group(function(){
     Route::get('/antrian/download-produksi-file/{id}', 'downloadProduksiFile')->middleware('auth')->name('antrian.downloadProduksi');
     Route::get('/antrian/reminder', 'reminderProgress')->middleware('auth')->name('antrian.reminder');
     Route::get('/antrian/tandai-selesai/{id}', 'markSelesai')->middleware('auth')->name('antrian.markSelesai');
-    Route::post('/antrian/filterByCategory', 'filterProcess')->middleware('auth')->name('antrian.filterByCategory');
     Route::get('/antrian/estimator-produksi/{id}', 'estimatorProduksi')->middleware('auth')->name('antrian.estimator-produksi');
     Route::get('/search-by-ticket', 'searchByTicket')->middleware('auth')->name('antrian.searchByTicket');
     Route::get('/result/search-by-ticket', 'resultSearchByTicket')->middleware('auth')->name('antrian.resultSearchByTicket');

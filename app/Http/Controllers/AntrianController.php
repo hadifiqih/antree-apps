@@ -33,132 +33,176 @@ class AntrianController extends Controller
     {
         $this->middleware('auth');
     }
-    
+
     public function estimatorProduksi(string $id)
     {
-        $antrian = Antrian::with(['payment', 'order', 'sales', 'customer', 'job', 'design', 'operator', 'finishing'])->where('ticket_order', $id)->first();
+        $antrian = Antrian::with(['payments', 'order', 'sales', 'customer', 'job', 'design', 'operator', 'finishing'])->where('ticket_order', $id)->first();
         return view('page.antrian-workshop.estimator-produksi', compact('antrian'));
     }
 
-    public function index()
+    public function index(Request $request)
     {
-        if(auth()->user()->role == 'sales'){
-            $sales = Sales::where('user_id', auth()->user()->id)->first();
-            $salesId = $sales->id;
+        $role = auth()->user()->role;
+        $salesAll = Sales::all();
+        $filtered = [];
 
-            $antrians = Antrian::with('payment', 'order', 'sales', 'customer', 'job', 'design', 'operator', 'finishing')
-            ->orderBy('created_at', 'desc')
-            ->where('status', '1')
-            ->where('sales_id', $salesId)
-            ->get();
+        // Mengecek apakah terdapat parameter filter (kategori dan/atau sales) pada request
+        $kategori   = $request->input('kategori');
+        $salesValue = $request->input('sales');
 
-            $antrianSelesai = Antrian::with('sales', 'customer', 'job', 'design', 'operator', 'finishing', 'order')
-                            ->orderByDesc('created_at')
-                            ->where('status', '2')
-                            ->where('sales_id', $salesId)
-                            ->take(30)
-                            ->get();
-                            
-        }elseif(auth()->user()->role == 'admin' || auth()->user()->role == 'dokumentasi'){
-            $antrians = Antrian::with('payment', 'order', 'sales', 'customer', 'job', 'design', 'operator', 'finishing')
-            ->orderBy('created_at', 'desc')
-            ->where('status', '1')
-            ->get();
+        if ($kategori || $salesValue) {
+            // Jika terdapat filter, gunakan kedua query (aktif dan selesai) dengan filter yang diterapkan
 
-            $antrianSelesai = Antrian::with('sales', 'customer', 'job', 'design', 'operator', 'finishing', 'order')
-                            ->orderByDesc('created_at')
-                            ->where('status', '2')
-                            ->take(25)
-                            ->get();
-            
-        }elseif(auth()->user()->role == 'stempel' || auth()->user()->role == 'advertising'){
-            
-            $antrians = Antrian::with('payment', 'order', 'sales', 'customer', 'job', 'design', 'operator', 'finishing')
-            ->orderBy('created_at', 'desc')
-            ->where('status', '1')
-            ->get();
+            // Query untuk antrian aktif (status = 1)
+            $activeQuery = Antrian::with('payments', 'order', 'sales', 'customer', 'job', 'design', 'operator', 'finishing')
+                ->where('status', '1')
+                ->whereBetween('created_at', [now()->subMonth(3), now()]);
 
-            $antrianSelesai = Antrian::with('sales', 'customer', 'job', 'design', 'operator', 'finishing', 'order')
-                            ->orderBy('created_at', 'desc')
-                            ->where('status', '2')
-                            ->take(25)
-                            ->get();
-                            
-        }elseif(auth()->user()->role == 'estimator' || auth()->user()->role == 'staffAdmin'){
-        
-            $antrians = Antrian::with('payment','sales', 'customer', 'job', 'design', 'operator', 'finishing', 'dokumproses')
-            ->where('status', '1')
-            ->orderByDesc('created_at')
-            ->get();
-    
-            $antrianSelesai = Antrian::with('payment','sales', 'customer', 'job', 'design', 'operator', 'finishing', 'dokumproses')
-            ->where('status', '2')
-            ->orderByDesc('created_at')
-            // ->take(750)
-            ->whereBetween('created_at', [now()->subMonth(1), now()])
-            ->get();
+            // Query untuk antrian selesai (status = 2)
+            $finishedQuery = Antrian::with('sales', 'customer', 'job', 'design', 'operator', 'finishing', 'order', 'documentation')
+                ->where('status', '2')
+                ->whereBetween('created_at', [now()->subMonth(3), now()]);
 
-        }else{
-            
-            $antrians = Antrian::with('payment', 'order', 'sales', 'customer', 'job', 'design', 'operator', 'finishing')
-            ->orderBy('created_at', 'desc')
-            ->where('status', '1')
-            ->get();
-
-            $antrianSelesai = Antrian::with('sales', 'customer', 'job', 'design', 'operator', 'finishing', 'order')
-                            ->orderBy('created_at', 'desc')
-                            ->where('status', '2')
-                            ->whereBetween('created_at', [now()->subMonth(3), now()])
-                            ->get();
-        }
-        
-        return view('page.antrian-workshop.index', compact('antrians', 'antrianSelesai'));
-        
-    }
-    
-    public function resetAntrian(Request $request, string $tiket)
-    {
-        try{
-            DB::beginTransaction();
-            $order = Order::where('ticket_order', $tiket)->first();
-            $pembayarans = Payment::where('ticket_order', $tiket)->get();
-            foreach($pembayaran as $pembayaran){
-                $pembayaran->delete();
+            // Terapkan filter berdasarkan kategori (job_type) jika tidak "Semua" dan tidak kosong
+            if ($kategori && $kategori !== '') {
+                $activeQuery->whereHas('job', function($query) use ($kategori) {
+                    $query->where('job_type', $kategori);
+                });
+                $finishedQuery->whereHas('job', function($query) use ($kategori) {
+                    $query->where('job_type', $kategori);
+                });
             }
-            $order->toWorkshop == 0;
-            $order->save();
-            DB::commit();
-        }catch(Exception $e){
-            DB::rollBack();
-            return redirect()->back()->with('error', 'Terjadi kesalahan saat menghapus. Silahkan coba lagi. (' . $e->getMessage() . ')');
+
+            // Terapkan filter berdasarkan sales_id jika tidak "Semua" dan tidak kosong
+            if ($salesValue && $salesValue !== '') {
+                $activeQuery->where('sales_id', $salesValue);
+                $finishedQuery->where('sales_id', $salesValue);
+            }
+
+            // Eksekusi query untuk mendapatkan data antrian aktif dan selesai
+            $antrians = $activeQuery->orderByDesc('created_at')->get();
+            $antrianSelesai = $finishedQuery->orderByDesc('created_at')->get();
+
+            // Menyimpan data filter agar form tetap menampilkan pilihan yang telah diseleksi
+            $filtered = [
+                'kategori' => $kategori,
+                'sales'    => $salesValue,
+            ];
+        } else {
+            // Jika tidak ada filter, gunakan logika default berdasarkan role
+            switch ($role) {
+                case 'sales':
+                    $sales    = Sales::where('user_id', auth()->user()->id)->first();
+                    $salesId  = $sales->id;
+                    $antrians = Antrian::with('payments', 'order', 'sales', 'customer', 'job', 'design', 'operator', 'finishing')
+                        ->where('status', '1')
+                        ->where('sales_id', $salesId)
+                        ->orderByDesc('created_at')
+                        ->get();
+                    $antrianSelesai = Antrian::with('sales', 'customer', 'job', 'design', 'operator', 'finishing', 'order', 'documentation')
+                        ->where('status', '2')
+                        ->where('sales_id', $salesId)
+                        ->orderByDesc('created_at')
+                        ->whereBetween('created_at', [now()->subMonth(1), now()])
+                        ->get();
+                    break;
+
+                case 'admin':
+                case 'dokumentasi':
+                case 'stempel':
+                case 'advertising':
+                    $antrians = Antrian::with('payments', 'order', 'order.employee', 'sales', 'customer', 'job', 'design', 'operator', 'finishing')
+                        ->where('status', '1')
+                        ->orderByDesc('created_at')
+                        ->limit(100)
+                        ->get();
+                    $antrianSelesai = Antrian::with('sales', 'customer', 'job', 'design', 'operator', 'finishing', 'order', 'documentation')
+                        ->where('status', '2')
+                        ->orderByDesc('created_at')
+                        ->whereBetween('created_at', [now()->subMonth(1), now()])
+                        ->limit(100)
+                        ->get();
+                    break;
+
+                case 'estimator':
+                case 'staffAdmin':
+                    $antrians = Antrian::with('payments', 'sales', 'order', 'order.employee' , 'customer', 'job', 'design', 'operator', 'finishing', 'dokumproses', 'documentation')
+                        ->where('status', '1')
+                        ->orderByDesc('created_at')
+                        ->whereBetween('created_at', [now()->subMonth(1), now()])
+                        ->get();
+                    $antrianSelesai = Antrian::with('payments', 'sales', 'order', 'customer', 'job', 'design', 'operator', 'finishing', 'dokumproses', 'documentation')
+                        ->where('status', '2')
+                        ->orderByDesc('created_at')
+                        ->whereBetween('created_at', [now()->subMonth(1), now()])
+                        ->get();
+                    break;
+
+                default:
+                    $antrians = Antrian::with('payments', 'order', 'sales', 'customer', 'job', 'design', 'operator', 'finishing')
+                        ->where('status', '1')
+                        ->orderByDesc('created_at')
+                        ->whereBetween('created_at', [now()->subMonth(1), now()])
+                        ->get();
+                    $antrianSelesai = Antrian::with('sales', 'customer', 'job', 'design', 'operator', 'finishing', 'order', 'documentation')
+                        ->where('status', '2')
+                        ->orderByDesc('created_at')
+                        ->whereBetween('created_at', [now()->subMonth(3), now()])
+                        ->get();
+                    break;
+            }
         }
-        
-        return redirect()->route('design.index')->with('success', 'Berhasil mereset antrian!');
-    }
 
-    public function filterProcess(Request $request)
-    {
-        $jobType = $request->input('kategori');
+        // Kumpulkan semua operator_id, finisher_id, dan qc_id dari setiap antrian untuk menghindari query berulang
+        $operatorIds = [];
+        $finisherIds = [];
+        $qcIds = [];
 
-        $antrians = Antrian::with('payment','sales', 'customer', 'job', 'design', 'operator', 'finishing', 'order')
-            ->whereHas('job', function ($query) use ($jobType) {
-                $query->where('job_type', $jobType);
-            })
-            ->where('status', '1')
-            ->whereBetween('created_at', [now()->subMonth(3), now()])
-            ->get();
+        // Gabungkan antrian aktif dan selesai agar seluruh data ter-cover
+        $allAntrians = $antrians;
+        if (isset($antrianSelesai)) {
+            $allAntrians = $allAntrians->merge($antrianSelesai);
+        }
 
-        $antrianSelesai = Antrian::with('payment','sales', 'customer', 'job', 'design', 'operator', 'finishing', 'order')
-            ->whereHas('job', function ($query) use ($jobType) {
-                $query->where('job_type', $jobType);
-            })
-            ->where('status', '2')
-            ->whereBetween('created_at', [now()->subMonth(3), now()])
-            ->get();
+        foreach ($allAntrians as $antrian) {
+            if (!empty($antrian->operator_id)) {
+                $ids = explode(',', $antrian->operator_id);
+                foreach ($ids as $id) {
+                    $id = trim($id);
+                    if ($id !== 'rekanan' && is_numeric($id)) {
+                        $operatorIds[] = (int)$id;
+                    }
+                }
+            }
+            if (!empty($antrian->finisher_id)) {
+                $ids = explode(',', $antrian->finisher_id);
+                foreach ($ids as $id) {
+                    $id = trim($id);
+                    if ($id !== 'rekanan' && is_numeric($id)) {
+                        $finisherIds[] = (int)$id;
+                    }
+                }
+            }
+            if (!empty($antrian->qc_id)) {
+                $ids = explode(',', $antrian->qc_id);
+                foreach ($ids as $id) {
+                    $id = trim($id);
+                    if ($id !== 'rekanan' && is_numeric($id)) {
+                        $qcIds[] = (int)$id;
+                    }
+                }
+            }
+        }
 
-        $filtered = $jobType;
+        $operatorIds = array_unique($operatorIds);
+        $finisherIds = array_unique($finisherIds);
+        $qcIds = array_unique($qcIds);
 
-        return view('page.antrian-workshop.index', compact('antrians', 'antrianSelesai', 'filtered'));
+        $operators = Employee::whereIn('id', $operatorIds)->get()->keyBy('id');
+        $finishers = Employee::whereIn('id', $finisherIds)->get()->keyBy('id');
+        $qcs = Employee::whereIn('id', $qcIds)->get()->keyBy('id');
+
+        return view('page.antrian-workshop.index', compact('antrians', 'antrianSelesai', 'operators', 'finishers', 'qcs', 'salesAll', 'filtered'));
     }
 
     public function searchByTicket()
@@ -176,7 +220,7 @@ class AntrianController extends Controller
             'created_at' => now(),
             'updated_at' => now()
         ]);
-        $antrian = Antrian::with('payment', 'order', 'sales', 'customer', 'job', 'design', 'operator', 'finishing')->where('ticket_order', $ticket)->first();
+        $antrian = Antrian::with('payments', 'order', 'sales', 'customer', 'job', 'design', 'operator', 'finishing')->where('ticket_order', $ticket)->first();
         return view('page.antrian-workshop.estimator-produksi', compact('antrian'));
     }
 
@@ -185,7 +229,7 @@ class AntrianController extends Controller
     //--------------------------------------------------------------------------
 
     public function serviceIndex(){
-        $servisBaru = Anservice::with('payment', 'order', 'sales', 'customer', 'job', 'design', 'operator', 'finishing')
+        $servisBaru = Anservice::with('payments', 'order', 'sales', 'customer', 'job', 'design', 'operator', 'finishing')
         ->get();
 
         return view('page.antrian-service.index', compact('servisBaru'));
@@ -202,18 +246,18 @@ class AntrianController extends Controller
 
     public function estimatorIndex()
     {
-        $fileBaruMasuk = Antrian::with('payment', 'order', 'sales', 'customer', 'job', 'design', 'operator', 'finishing')
+        $fileBaruMasuk = Antrian::with('payments', 'order', 'sales', 'customer', 'job', 'design', 'operator', 'finishing')
         ->where('status', '1')
         ->where('is_aman', '0')
         ->orderByDesc('created_at')
         ->get();
 
-        $progressProduksi = Antrian::with('payment', 'order', 'sales', 'customer', 'job', 'design', 'operator', 'finishing', 'dokumproses')
+        $progressProduksi = Antrian::with('payments', 'order', 'sales', 'customer', 'job', 'design', 'operator', 'finishing', 'dokumproses')
         ->where('status', '1')
         ->orderByDesc('created_at')
         ->get();
 
-        $selesaiProduksi = Antrian::with('payment', 'order', 'sales', 'customer', 'job', 'design', 'operator', 'finishing', 'dokumproses')
+        $selesaiProduksi = Antrian::with('payments', 'order', 'sales', 'customer', 'job', 'design', 'operator', 'finishing', 'dokumproses')
         ->where('status', '2')
         ->orderByDesc('created_at')
         ->get();
@@ -226,7 +270,7 @@ class AntrianController extends Controller
         $jobType = $request->input('kategori');
         $filtered = $jobType;
 
-        $fileBaruMasuk = Antrian::with('payment', 'order', 'sales', 'customer', 'job', 'design', 'operator', 'finishing')
+        $fileBaruMasuk = Antrian::with('payments', 'order', 'sales', 'customer', 'job', 'design', 'operator', 'finishing')
         ->whereHas('job', function ($query) use ($jobType) {
             $query->where('job_type', $jobType);
         })
@@ -234,7 +278,7 @@ class AntrianController extends Controller
         ->orderByDesc('created_at')
         ->get();
 
-        $progressProduksi = Antrian::with('payment', 'order', 'sales', 'customer', 'job', 'design', 'operator', 'finishing', 'dokumproses')
+        $progressProduksi = Antrian::with('payments', 'order', 'sales', 'customer', 'job', 'design', 'operator', 'finishing', 'dokumproses')
         ->whereHas('job', function ($query) use ($jobType) {
             $query->where('job_type', $jobType);
         })
@@ -242,7 +286,7 @@ class AntrianController extends Controller
         ->orderByDesc('created_at')
         ->get();
 
-        $selesaiProduksi = Antrian::with('payment', 'order', 'sales', 'customer', 'job', 'design', 'operator', 'finishing', 'dokumproses')
+        $selesaiProduksi = Antrian::with('payments', 'order', 'sales', 'customer', 'job', 'design', 'operator', 'finishing', 'dokumproses')
         ->whereHas('job', function ($query) use ($jobType) {
             $query->where('job_type', $jobType);
         })
@@ -373,7 +417,7 @@ class AntrianController extends Controller
             $payment->payment_status = $request->input('statusPembayaran');
             $payment->payment_proof = $namaBuktiPembayaran;
             $payment->save();
-        
+
 
         $accDesain = $request->file('accDesain');
         $namaAccDesain = $accDesain->getClientOriginalName();
@@ -407,7 +451,7 @@ class AntrianController extends Controller
         $antrian->harga_produk = $hargaProduk;
         $antrian->packing_cost = $biayaPengemasan;
         $antrian->save();
-        
+
         $latestAntrian = Antrian::where('customer_id', $antrian->customer_id)->latest()->first();
         if ($latestAntrian) {
             $latestAntrian = $latestAntrian->created_at->format('d-m-Y');
@@ -427,7 +471,7 @@ class AntrianController extends Controller
         if($user != 'rekanan'){
             $user->notify(new AntrianWorkshop($antrian, $order, $payment));
         }
-        
+
         // // Menampilkan push notifikasi saat selesai
         // $beamsClient = new \Pusher\PushNotifications\PushNotifications(array(
         //     "instanceId" => "0958376f-0b36-4f59-adae-c1e55ff3b848",

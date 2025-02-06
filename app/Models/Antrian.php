@@ -31,9 +31,9 @@ class Antrian extends Model
         return $this->belongsTo(Customer::class);
     }
 
-    public function payment()
+    public function payments()
     {
-        return $this->hasOne(Payment::class, 'ticket_order', 'ticket_order');
+        return $this->hasMany(Payment::class, 'ticket_order', 'ticket_order');
     }
 
     public function operator()

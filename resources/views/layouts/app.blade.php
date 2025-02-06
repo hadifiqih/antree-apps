@@ -230,7 +230,7 @@
                 </li>
                 @elseif(auth()->user()->role == 'estimator')
                 <li class="nav-item">
-                    <a href="{{ route('estimator.index') }}" class="nav-link {{ request()->routeIs('estimator.index') || request()->routeIs('estimator.edit') ? 'active' : '' }}">
+                    <a href="{{ route('antrian.index') }}" class="nav-link {{ request()->routeIs('antrian.index') || request()->routeIs('estimator.edit') ? 'active' : '' }}">
                     <i class="far fa-circle nav-icon"></i>
                     <p>Estimator</p>
                     </a>
