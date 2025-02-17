@@ -8,7 +8,31 @@
 
 @section('breadcrumb', 'Tambah Antrian')
 
+@section('style')
+<style>
+    .select2-container .select2-selection--single {
+        height: 40px !important;
+    }
+</style>
+@endsection
+
 @section('content')
+@if(session('success'))
+    <div class="alert alert-success alert-dismissible fade show" role="alert">
+        {{ session('success') }}
+        <button type="button" class="close" data-dismiss="alert" aria-label="Tutup">
+            <span aria-hidden="true">&times;</span>
+        </button>
+    </div>
+@endif
+@if(session('error'))
+    <div class="alert alert-danger alert-dismissible fade show" role="alert">
+        {{ session('error') }}
+        <button type="button" class="close" data-dismiss="alert" aria-label="Tutup">
+            <span aria-hidden="true">&times;</span>
+        </button>
+    </div>
+@endif
 <div class="container-fluid">
     <form action="{{ route('antrian.store') }}" method="POST" enctype="multipart/form-data">
         @csrf
@@ -16,7 +40,7 @@
         <div class="col-12">
             <div class="card">
                 <div class="card-header">
-                  <h2 class="card-title">Data Pelanggan</h2>
+                    <h2 class="card-title">Data Pelanggan</h2>
                 </div>
                 <div class="card-body">
                     {{-- Tambah Pelanggan Baru --}}
@@ -34,11 +58,11 @@
                         <label for="sumberPelanggan">Status Pelanggan</label>
                         <input type="text" class="form-control" id="statusPelanggan" placeholder="Status Pelanggan" value="" readonly>
                     </div>
-              </div>
+                </div>
             </div>
         </div>
-      </div>
-      <div class="row">
+    </div>
+    <div class="row">
         <div class="col-12">
             <div class="card">
                 <div class="card-header">
@@ -71,7 +95,9 @@
 
                     <div class="form-group">
                         <label for="keterangan">Keterangan Spesifikasi <span class="text-danger">*</span></label>
-                        <textarea class="form-control" id="keterangan" rows="5" placeholder="Keterangan" name="keterangan"></textarea>
+                        <textarea class="form-control" id="keterangan" rows="5" placeholder="Keterangan" name="keterangan">
+                            {{ old('keterangan') }}
+                        </textarea>
                     </div>
                     <div class="form-group">
                         {{-- Platform Iklan with input select2 --}}
@@ -80,7 +106,7 @@
                             <option value="" disabled selected>-- Pilih Platform Iklan --</option>
                             <option value="0">Tidak dari Iklan Berbayar</option>
                             @foreach ($platforms as $platform)
-                                <option value="{{ $platform->id }}">{{ $platform->platform_name }}</option>
+                                <option value="{{ $platform->id }}" {{ $platform->id == old('platformIklan') ? 'selected' : '' }}>{{ $platform->platform_name }}</option>
                             @endforeach
                         </select>
                         <small class="text-muted font-italic">*Jika Organik(Postingan Marol), pilih "Tidak dari Iklan Berbayar"</small>
@@ -97,94 +123,159 @@
                 </div>
                 <div class="card-body">
 
-                    <div class="form-group">
-                        <label for="statusPembayaran">Status Pembayaran <span class="text-danger">*</span></label>
-                        <select class="custom-select rounded-0" id="statusPembayaran" name="statusPembayaran">
-                            <option value="" disabled selected>-- Pilih Status Pembayaran --</option>
-                            <option value="DP">DP</option>
-                            <option value="Lunas">Lunas</option>
-                            <option value="Belum Bayar">Belum Bayar</option>
-                        </select>
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <label for="hargaProduk">Harga Produk <span class="text-danger">*</span></label>
+                            <div class="input-group">
+                                <div class="input-group-prepend">
+                                    <span class="input-group-text">Rp</span>
+                                </div>
+                                <input type="text" class="form-control rupiah" placeholder="Harga Produk" id="hargaProduk" name="hargaProduk" value="{{ old('hargaProduk') }}" required>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <label for="qty">Qty <span class="text-danger">*</span></label>
+                            <input type="number" class="form-control" id="qty" placeholder="Masukkan jumlah / qty produk" name="qty" value="{{ old('qty') }}" required>
+                        </div>
                     </div>
 
-                    <div class="form-group">
-                        <label for="jenisPembayaran">Jenis Pembayaran <span class="text-danger">*</span></label>
-                        <select class="custom-select rounded-0" id="jenisPembayaran" name="jenisPembayaran">
-                            <option value="" disabled selected>-- Pilih Jenis Pembayaran --</option>
-                            <option value="Cash">Tunai</option>
-                            <option value="Transfer BCA">Transfer BCA</option>
-                            <option value="Transfer BNI">Transfer BNI</option>
-                            <option value="Transfer BRI">Transfer BRI</option>
-                            <option value="Transfer Mandiri">Transfer Mandiri</option>
-							<option value="Transfer BSI">Transfer BSI</option>
-                            <option value="Saldo Tokopedia">Marketplace Tokopedia</option>
-                            <option value="Saldo Shopee">Marketplace Shopee</option>
-                            <option value="Saldo Bukalapak">Marketplace Bukalapak</option>
-                            <option value="Bayar Waktu Ambil">Bayar Waktu Ambil</option>
-                        </select>
+                    <div class="row mb-3">
+                        <div class="col-12">
+                            <label for="jenisPembayaran">Metode Pembayaran <span class="text-danger">*</span></label>
+                            <select class="custom-select rounded-0" id="jenisPembayaran" name="jenisPembayaran">
+                                <option value="" disabled selected>-- Pilih Metode Pembayaran --</option>
+                                @foreach([
+                                        'Cash' => 'Tunai', 
+                                        'Transfer BCA' => 'Transfer BCA', 
+                                        'Transfer BNI' => 'Transfer BNI', 
+                                        'Transfer BRI' => 'Transfer BRI', 
+                                        'Transfer Mandiri' => 'Transfer Mandiri', 
+                                        'Transfer BSI' => 'Transfer BSI', 
+                                        'Saldo Tokopedia' => 'Marketplace Tokopedia', 
+                                        'Saldo Shopee' => 'Marketplace Shopee', 
+                                        'Saldo Bukalapak' => 'Marketplace Bukalapak', 
+                                        'Bayar Waktu Ambil' => 'Bayar Waktu Ambil'
+                                    ] as $value => $label)
+                                    <option value="{{ $value }}">{{ $label }}</option>
+                                @endforeach
+                            </select>
+                        </div>
                     </div>
 
-                    <div class="form-group">
-                        <label for="jumlahPembayaran">Jumlah Pembayaran Pelanggan <span class="text-danger">*</span></label>
-                        <input type="text" class="form-control rupiah" id="jumlahPembayaran" placeholder="Rp" name="jumlahPembayaran" required>
-                    </div>
-
-                    <div class="form-group">
-                        <label for="hargaProduk">Harga Produk (satuan) <p class="text-danger font-italic text-sm mb-0">* (Biaya Ongkir / Pasang tidak termasuk)</p></label>
-                        <input type="text" class="form-control rupiah" id="hargaProduk" placeholder="Rp" name="hargaProduk" required>
-                    </div>
-
-                    <div class="form-group">
-                        {{-- Input Qty Barang / Produk --}}
-                        <label for="qty">Qty <span class="text-danger">*</span></label>
-                        <input type="text" class="form-control" id="qty" placeholder="Masukkan jumlah / qty produk" name="qty">
-                    </div>
-
-                    <div class="form-group">
-                        {{-- Biaya Jasa Pengiriman --}}
-                        <label for="biayaPengiriman">Biaya Jasa Pengiriman <span class="text-sm text-muted font-italic">(Opsional)</span></label>
-                        <input type="text" class="form-control rupiah" id="biayaPengiriman" placeholder="Rp" name="biayaPengiriman">
-                    </div>
-
-                    <div class="form-group">
-                        {{-- Biaya Jasa Pemasangan --}}
-                        <label for="biayaPemasangan">Biaya Jasa Pemasangan <span class="text-sm text-muted font-italic">(Opsional)</span></label>
-                        <input type="text" class="form-control rupiah" id="biayaPemasangan" placeholder="Rp" name="biayaPemasangan">
-                    </div>
-                    
-                    <div class="form-group">
-                         {{-- Biaya jasa pengemasan --}}
-                        <label for="biayaPengemasan">Biaya Jasa Packing <span class="text-sm text-muted font-italic">(Opsional)</span></label>
-                        <input type="text" class="form-control rupiah" id="biayaPengemasan" placeholder="Rp" name="biayaPengemasan">
-                    </div>
-
-                    <div class="form-group">
-                        {{-- Alamat Pengiriman --}}
-                        <label for="alamatPengiriman">Alamat Pengiriman / Pemasangan <span class="text-sm text-muted font-italic">(Opsional)</span></label>
-                        <input type="text" class="form-control" id="alamatPengiriman" placeholder="Alamat Pengiriman / Pemasangan" name="alamatPengiriman">
-                    </div>
-
-                    <div id="formBuktiBayar" class="form-group">
+                    <div id="formBuktiBayar" class="form-group mb-3">
                         {{-- Bukti Pembayaran / Transfer --}}
                         <label for="buktiPembayaran">Bukti Pembayaran <span class="text-danger">*</span></label>
-                        <div class="input-group">
-                            <div class="custom-file">
-                                <input type="file" class="custom-file-input" id="buktiPembayaran" name="buktiPembayaran">
-                                <label class="custom-file-label" for="buktiPembayaran">Pilih File</label>
+                        <div class="d-flex flex-row">
+                            <div class="input-group">
+                                <div class="custom-file">
+                                    <input type="file" class="custom-file-input" id="buktiPembayaran" name="buktiPembayaran" disabled>
+                                    <label class="custom-file-label" for="buktiPembayaran">Unggah Bukti Pembayaran</label>
+                                </div>
+                            </div>
+                            <!-- Tombol untuk melihat pratinjau file yang diunggah sementara -->
+                            <button class="btn btn-info ml-2" id="btnLihatBukti" type="button" disabled>
+                                <i class="fa fa-eye"></i>
+                            </button>
+                        </div>
+                        <small id="infoVerified" class="text-muted font-italic">Pilih metode pembayaran terlebih dahulu</small>
+                    </div>
+
+                    {{-- Jumlah Pembayaran Pelanggan --}}
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <label for="jumlahPembayaran">Jumlah Pembayaran Pelanggan <span class="text-danger">*</span></label>
+                            <div class="input-group">
+                                <div class="input-group-prepend">
+                                    <span class="input-group-text">Rp</span>
+                                </div>
+                                <input type="text" class="form-control rupiah" placeholder="Jumlah Pembayaran Pelanggan" value="0" id="jumlahPembayaran" name="jumlahPembayaran" required>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <label for="statusPembayaran">Status Pembayaran <span class="text-danger">*</span></label>
+                            <select class="custom-select rounded-0" id="statusPembayaran" name="statusPembayaran">
+                                <option value="" disabled selected>-- Pilih Status Pembayaran --</option>
+                                <option value="DP">DP</option>
+                                <option value="Lunas">Lunas</option>
+                                <option value="Belum Bayar">Belum Bayar</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="row">
+                        <div class="col-lg-4 col-sm-6">
+                            <div class="form-group">
+                                {{-- Biaya Jasa Pengiriman --}}
+                                <label for="biayaPengiriman">Biaya Jasa Pengiriman <span class="text-sm text-muted font-italic">(Opsional)</span></label>
+                                <div class="input-group">
+                                    <div class="input-group-prepend">
+                                        <span class="input-group-text">Rp</span>
+                                    </div>
+                                    <input type="text" class="form-control rupiah" id="biayaPengiriman" placeholder="Biaya Jasa Pengiriman" name="biayaPengiriman">
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-lg-4 col-sm-6">
+                            <div class="form-group">
+                                {{-- Biaya Jasa Pemasangan --}}
+                                <label for="biayaPemasangan">Biaya Jasa Pemasangan <span class="text-sm text-muted font-italic">(Opsional)</span></label>
+                                <div class="input-group">
+                                    <div class="input-group-prepend">
+                                        <span class="input-group-text">Rp</span>
+                                    </div>
+                                    <input type="text" class="form-control rupiah" id="biayaPemasangan" placeholder="Biaya Jasa Pemasangan" name="biayaPemasangan">
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-lg-4 col-sm-6">
+                            <div class="form-group">
+                                {{-- Biaya jasa pengemasan --}}
+                                <label for="biayaPengemasan">Biaya Jasa Packing <span class="text-sm text-muted font-italic">(Opsional)</span></label>
+                                <div class="input-group">
+                                    <div class="input-group-prepend">
+                                        <span class="input-group-text">Rp</span>
+                                    </div>
+                                    <input type="text" class="form-control rupiah" id="biayaPengemasan" placeholder="Biaya Jasa Packing" name="biayaPengemasan">
+                                </div>
                             </div>
                         </div>
                     </div>
 
                     <div class="form-group">
-                        {{-- Total Omset --}}
-                        <label for="totalPembayaran">Total Omset <span class="text-danger">*</span></label>
-                        <input type="text" class="form-control rupiah" id="totalPembayaran" placeholder="Rp" name="totalPembayaran" required readonly>
+                        {{-- Alamat Pengiriman --}}
+                        <label for="alamatPengiriman">Alamat Pengiriman / Pemasangan <span class="text-sm text-muted font-italic">(Opsional)</span></label>
+                        <textarea rows="3" class="form-control" id="alamatPengiriman" placeholder="Alamat Pengiriman / Pemasangan" name="alamatPengiriman"></textarea>
                     </div>
 
-                    {{-- Tampilkan sisa pembayaran jika status pembayaran = DP, tampilkan Lunas jika status pembayaran Lunas --}}
-                    <div class="form-group">
-                        <label for="sisaPembayaran">Sisa Pembayaran</label>
-                        <input type="text" class="form-control rupiah" id="sisaPembayaran" placeholder="Rp" name="sisaPembayaran" readonly>
+                    <div class="row">
+                        <div class="col-6">
+                            {{-- Jumlah Pembayaran Pelanggan --}}
+                            <label for="totalOmset">Subtotal <span class="text-danger">*</span></label>
+                            <div class="input-group mb-3">
+                                <div class="input-group-prepend">
+                                    <span class="input-group-text">Rp</span>
+                                </div>
+                                <input type="text" class="form-control rupiah" placeholder="Subtotal" id="subtotal" name="subtotal" required disabled>
+                            </div>
+                        </div>
+                        <div class="col-6">
+                            {{-- Tampilkan sisa pembayaran jika status pembayaran = DP, tampilkan Lunas jika status pembayaran Lunas --}}
+                            <label for="sisaTagihan">Sisa Tagihan <span class="text-danger">*</span></label>
+                            <div class="input-group mb-3">
+                                <div class="input-group-prepend">
+                                    <span class="input-group-text">Rp</span>
+                                </div>
+                                <input type="text" class="form-control rupiah" placeholder="Sisa Tagihan" id="sisaTagihan" name="sisaTagihan" required disabled>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="row">
+                        <div class="col-12">
+                            <label for="totalOmset">Total Omset <span class="text-danger">*</span></label>
+                            <h3 class="h3 text-success font-weight-bold" id="totalOmset">Rp 0</h3>
+                            <input type="hidden" id="totalOmsetInput" name="totalOmset">
+                        </div>
                     </div>
 
                 </div>
@@ -226,6 +317,11 @@
                                 <input type="file" class="custom-file-input" id="accDesain" name="accDesain" required>
                                 <label class="custom-file-label" for="accDesain">Unggah Gambar</label>
                             </div>
+                            <div class="input-group-append">
+                                <button type="button" class="btn btn-info" id="btnPreviewAcc" disabled>
+                                    <i class="fa fa-eye"></i>
+                                </button>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -237,7 +333,8 @@
             <div class="col-12">
                 <div class="card">
                     <div class="card-body text-right">
-                        <input type="hidden" name="sales" value="{{ $order->sales_id }}">
+                        <input type="hidden" name="sales_id" value="{{ $order->sales_id }}" required>
+                        <input type="hidden" name="ticket_order" value="{{ $order->ticket_order }}" required>
                         {{-- Tombol Submit --}}
                         <div class="d-flex align-items-center">
                             <button id="submitToAntrian" type="submit" class="btn btn-primary">Submit<div id="loader" class="loader" style="display: none;"></div>
@@ -260,6 +357,7 @@
                 <div class="modal-body">
                     <form id="pelanggan-form" method="POST">
                     @csrf
+                    <input type="hidden" name="sales_id" value="{{ Auth::user()->sales->id }}">
                     <div class="form-group">
                         <label for="nama">Nama Pelanggan <span class="text-danger">*</span></label>
                         <input type="text" class="form-control" id="modalNama" placeholder="Nama Pelanggan" name="modalNama" required>
@@ -289,8 +387,6 @@
                             <option value="Instagram">Instagram</option>
                             <option value="Tiktok">Tiktok</option>
                             <option value="Youtube">Youtube</option>
-                            <option value="Snackvideo">Snackvideo</option>
-                            <option value="OLX">OLX</option>
                             <option value="Teman/Keluarga/Kerabat">Teman/Keluarga/Kerabat</option>
                             <option value="Iklan Facebook">Iklan Facebook</option>
                             <option value="Iklan Meta">Iklan Meta</option>
@@ -304,9 +400,8 @@
                             <option value="Follow Up">Follow Up</option>
                             <option value="RO WA">RO WhatsApp</option>
                             <option value="Broadcast">Broadcast</option>
-                            <option value="Pengunjung Mall">Pengunjung Mall</option>
                             <option value="Event">Event</option>
-                            <option value="Lainnya">Lainnya</option>
+                            <option value="Toko Pasar Kembang">Toko Pasar Kembang</option>
                         </select>
                     </div>
 		    <div class="form-group">
@@ -328,33 +423,71 @@
                 </div>
             </form>
             </div>
-            </div>
         </div>
+    </div>
+</div>
+
+<!-- Modal untuk Pratinjau Bukti Pembayaran -->
+<div class="modal fade" id="filePreviewModal" tabindex="-1" aria-labelledby="filePreviewModalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="filePreviewModalLabel">Pratinjau Bukti Pembayaran</h5>
+        <button type="button" class="close" data-dismiss="modal" aria-label="Tutup">
+          <span aria-hidden="true">&times;</span>
+        </button>
+      </div>
+      <div class="modal-body">
+         <div id="filePreviewContainer">
+            <!-- Konten pratinjau file akan ditampilkan di sini -->
+         </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Modal untuk Pratinjau ACC Desain -->
+<div class="modal fade" id="accPreviewModal" tabindex="-1" aria-labelledby="accPreviewModalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="accPreviewModalLabel">Pratinjau Gambar ACC</h5>
+        <button type="button" class="close" data-dismiss="modal" aria-label="Tutup">
+          <span aria-hidden="true">&times;</span>
+        </button>
+      </div>
+      <div class="modal-body">
+         <div id="accPreviewContainer" class="text-center">
+            <!-- Preview gambar akan dimuat di sini -->
+         </div>
+      </div>
+    </div>
+  </div>
 </div>
 
 @endsection
 
 @section('script')
+<script src="https://cdn.jsdelivr.net/npm/tesseract.js@4.0.2/dist/tesseract.min.js"></script>
 <script src="{{ asset('adminlte/dist/js/maskMoney.min.js') }}"></script>
+<script src="{{ asset('adminlte/dist/js/ocr.js') }}"></script>
+<script>
+    $(document).ready(function(){
+        $('.rupiah').on('keyup', function () {
+            // Ambil nilai input dan buang karakter selain angka
+            const inputValue = $(this).val();
+            const numericString = inputValue.replace(/[^0-9]/g, '');
 
-   <script>
-       $(document).ready(function(){
-        $('#hargaProduk, #biayaPengiriman, #biayaPemasangan, #biayaPengemasan, #jumlahPembayaran, #totalPembayaran, #sisaPembayaran').maskMoney({prefix:'Rp ', thousands:'.', decimal:',', precision:0});
+            // Konversi string menjadi angka; jika gagal, gunakan 0
+            const numberValue = parseInt(numericString, 10) || 0;
 
-        $('#statusPembayaran').change(function(){
-        var status = $(this).val();
-            if(status == 'Belum Bayar'){
-                $('#jumlahPembayaran').val('0');
-                $('#jumlahPembayaran').attr('readonly', true);
-                $('#jenisPembayaran').val('Bayar Waktu Ambil');
-                $('#jenisPembayaran').attr('readonly', true);
-                $('#formBuktiBayar').hide();
-            }else{
-                $('#jumlahPembayaran').val('');
-                $('#jumlahPembayaran').attr('readonly', false);
-                $('#jenisPembayaran').val('');
-                $('#jenisPembayaran').attr('readonly', false);
-            }
+            // Format angka ke format rupiah (IDR) dengan tanpa desimal
+            const formattedValue = numberValue.toLocaleString('id-ID', {
+                minimumFractionDigits: 0
+            });
+
+            // Set nilai input dengan hasil format rupiah
+            $(this).val(formattedValue);
         });
 
         //function provinsi dengan select2
@@ -407,47 +540,6 @@
             });
         });
 
-        $('#jenisPembayaran').change(function(){
-            var jenis = $(this).val();
-            if(jenis == 'Cash' || jenis == 'Bayar Waktu Ambil'){
-                $('#formBuktiBayar').hide();
-            }else{
-                $('#formBuktiBayar').show();
-            }
-        });
-
-        $('#hargaProduk, #qty, #biayaPengiriman, #biayaPemasangan, #biayaPengemasan').keyup(function(){
-            var jumlahPembayaran = parseInt($('#jumlahPembayaran').val().replace('Rp ', '').replace(/\./g, ''));
-            var qty = parseInt($('#qty').val());
-            var hargaProduk = parseInt($('#hargaProduk').val().replace('Rp ', '').replace(/\./g, ''));
-            var biayaPengiriman = parseInt($('#biayaPengiriman').val().replace('Rp ', '').replace(/\./g, ''));
-            var biayaPemasangan = parseInt($('#biayaPemasangan').val().replace('Rp ', '').replace(/\./g, ''));
-            var biayaPengemasan = parseInt($('#biayaPengemasan').val().replace('Rp ', '').replace(/\./g, ''));
-
-            if(isNaN(qty)){
-                qty = 0;
-            }
-            if(isNaN(hargaProduk)){
-                hargaProduk = 0;
-            }
-            if(isNaN(biayaPengiriman)){
-                biayaPengiriman = 0;
-            }
-            if(isNaN(biayaPemasangan)){
-                biayaPemasangan = 0;
-            }
-            if(isNaN(biayaPengemasan)){
-                biayaPengemasan = 0;
-            }
-
-            var total = (hargaProduk * qty) + biayaPengiriman + biayaPemasangan + biayaPengemasan;
-            totalView = total.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ".");
-            var sisa = total - jumlahPembayaran;
-            sisaView = sisa.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ".");
-            $('#totalPembayaran').val('Rp ' + totalView);
-            $('#sisaPembayaran').val('Rp ' + sisaView);
-        });
-
         $('#nama').select2({
             placeholder: 'Pilih Pelanggan',
             ajax:{
@@ -476,106 +568,95 @@
             }
         });
 
-   $('#pelanggan-form').on('submit', function(e){
-       e.preventDefault();
+        $('#pelanggan-form').on('submit', function(e){
+        e.preventDefault();
 
-       $(this).find('#submitPelanggan').prop('disabled', true);
-       $(this).find('#loader').show();
+        $(this).find('#submitPelanggan').prop('disabled', true);
+        $(this).find('#loader').show();
 
-       const formData = $(this).serialize();
-       $.ajaxSetup({
-           headers: {
-               'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content')
-           }
-       });
-       $.ajax({
-           url:"{{ route('pelanggan.store') }}",
-           type:"POST",
-           data: formData,
-           success:function(response){
-               if(response.success){
-                   $('#exampleModal').modal('hide');
-                   //Mengosongkan Form pada Modal
-                   $('#modalTelepon').val('');
-                   $('#modalNama').val('');
-                   $('#modalAlamat').val('');
-                   $('#modalInstansi').val('');
-                   $('#infoPelanggan').val('default');
-                   Swal.fire({
-                       icon: 'success',
-                       title: 'Berhasil',
-                       text: 'Data Pelanggan Berhasil Ditambahkan',
-                       timer: 2500
-                   });
-                   setInterval(() => {
-                       location.reload();
-                   }, 2500);
-               }
+        const formData = $(this).serialize();
+        $.ajaxSetup({
+            headers: {
+                'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content')
             }
         });
-    });
+        $.ajax({
+            url:"{{ route('pelanggan.store') }}",
+            type:"POST",
+            data: formData,
+            success:function(response){
+                if(response.success){
+                    $('#exampleModal').modal('hide');
+                    //Mengosongkan Form pada Modal
+                    $('#modalTelepon').val('');
+                    $('#modalNama').val('');
+                    $('#modalAlamat').val('');
+                    $('#modalInstansi').val('');
+                    $('#infoPelanggan').val('default');
+                    Swal.fire({
+                        icon: 'success',
+                        title: 'Berhasil',
+                        text: 'Data Pelanggan Berhasil Ditambahkan',
+                        timer: 2500
+                    });
+                    setInterval(() => {
+                        location.reload();
+                    }, 2500);
+                }
+                }
+            });
+        });
 
-    $('#submitToAntrian').on('submit', function(e){
-        // MemasTikan agar form tidak di-submit secara langsung
+        $('#submitToAntrian').on('submit', function(e){
+            // MemasTikan agar form tidak di-submit secara langsung
             e.preventDefault();
-
             // Lakukan validasi di sini
             var error = false;
-
             // Validasi untuk nama pelanggan
             if ($('#nama').val() == '') {
                 error = true;
                 alert('Nama pelanggan harus diisi');
             }
-
             // Validasi untuk status pembayaran
             if ($('#statusPembayaran').val() == '') {
                 error = true;
                 alert('Status pembayaran harus dipilih');
             }
-
             // Validasi untuk jenis pembayaran
             if ($('#jenisPembayaran').val() == '') {
                 error = true;
                 alert('Jenis pembayaran harus dipilih');
             }
-
             // Validasi untuk jumlah pembayaran pelanggan
             if ($('#jumlahPembayaran').val() == '') {
                 error = true;
                 alert('Jumlah pembayaran pelanggan harus diisi');
             }
-
             // Validasi untuk harga produk
             if ($('#hargaProduk').val() == '') {
                 error = true;
                 alert('Harga produk harus diisi');
             }
-
             // Validasi untuk qty
             if ($('#qty').val() == '') {
                 error = true;
                 alert('Qty harus diisi');
             }
-            
             //Validasi untuk keterangan
             if ($('#keterangan').val() == '') {
                 error = true;
                 alert('Keterangan / Spesifikasi harus diisi');
             }
-
             // Validasi untuk bukti pembayaran
             if ($('#buktiPembayaran').get(0).files.length === 0) {
                 error = true;
                 alert('Bukti pembayaran harus diunggah');
             }
-
             // Validasi untuk upload gambar ACC
             if ($('#accDesain').get(0).files.length === 0) {
                 error = true;
                 alert('Gambar ACC harus diunggah');
             }
-
             // Jika tidak ada kesalahan, submit form
             if (!error) {
                 $(this).find('#submitToAntrian').prop('disabled', true);
@@ -583,11 +664,39 @@
                 $('#formAntrian').submit();
             }
         });
-    });
-</script>
-<script>
-    $(function () {
-      bsCustomFileInput.init();
+
+            // Event listener: Cek perubahan file ACC Desain
+        $('#accDesain').on('change', function(){
+            var file = this.files[0];
+            // Jika file dipilih dan tipe file adalah gambar
+            if (file && file.type.startsWith('image/')) {
+                $('#btnPreviewAcc').prop('disabled', false);
+            } else {
+                $('#btnPreviewAcc').prop('disabled', true);
+            }
+        });
+
+        // Event listener: Preview gambar ACC saat tombol preview ditekan
+        $('#btnPreviewAcc').on('click', function(){
+            var file = $('#accDesain')[0].files[0];
+            // Validasi kembali file yang dipilih
+            if (file && file.type.startsWith('image/')) {
+                var reader = new FileReader();
+                reader.onload = function(e){
+                    // Masukkan konten gambar ke dalam container preview
+                    $('#accPreviewContainer').html('<img src="'+e.target.result+'" class="img-fluid" alt="Preview ACC Desain" />');
+                    // Tampilkan modal preview
+                    $('#accPreviewModal').modal('show');
+                };
+                reader.readAsDataURL(file);
+            } else {
+                Swal.fire({
+                    icon: 'warning',
+                    title: 'Peringatan',
+                    text: 'Silahkan pilih file gambar yang valid untuk ACC Desain!'
+                });
+            }
+        });
     });
 </script>
 @endsection

@@ -21,6 +21,35 @@ class Antrian extends Model
 
     protected $table = 'antrians';
 
+    protected $fillable = [
+        'ticket_order',
+        'customer_id',
+        'sales_id',
+        'job_id',
+        'note',
+        'admin_note',
+        'start_job',
+        'end_job',
+        'design_id',
+        'operator_id',
+        'finisher_id',
+        'qc_id',
+        'omset',
+        'qty',
+        'harga_produk',
+        'packing_cost',
+        'working_at',
+        'machine_code',
+        'alamat_pengiriman',
+        'file_po',
+        'order_id',
+        'platform_id',
+        'timer_stop',
+        'status',
+        'is_aman',
+        'deadline_status',
+    ];
+
     public function sales()
     {
         return $this->belongsTo(Sales::class);

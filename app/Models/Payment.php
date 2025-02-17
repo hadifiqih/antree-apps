@@ -11,6 +11,22 @@ class Payment extends Model
 {
     use HasFactory;
 
+    protected $table = 'payments';
+
+    protected $fillable = [
+        'ticket_order',
+        'total_payment',
+        'payment_amount',
+        'shipping_cost',
+        'installation_cost',
+        'remaining_payment',
+        'payment_method',
+        'payment_status',
+        'payment_proof',
+        'checked_status',
+        'checked_by',
+    ];
+
     //relasi dengan tabel antrian dengan foreign key ticket_order
     public function antrian()
     {
@@ -21,5 +37,4 @@ class Payment extends Model
     {
         return $this->hasOne(Order::class, 'ticket_order');
     }
-
 }

@@ -225,22 +225,6 @@ class AntrianController extends Controller
     }
 
     //--------------------------------------------------------------------------
-    //Fungsi untuk menampilkan halaman tambah antrian service
-    //--------------------------------------------------------------------------
-
-    public function serviceIndex(){
-        $servisBaru = Anservice::with('payments', 'order', 'sales', 'customer', 'job', 'design', 'operator', 'finishing')
-        ->get();
-
-        return view('page.antrian-service.index', compact('servisBaru'));
-    }
-
-    public function serviceCreate(){
-
-        return view('page.antrian-service.create');
-    }
-
-    //--------------------------------------------------------------------------
     //Estimator
     //--------------------------------------------------------------------------
 
@@ -297,35 +281,6 @@ class AntrianController extends Controller
         return view('page.antrian-workshop.estimator-index', compact('fileBaruMasuk', 'progressProduksi', 'selesaiProduksi', 'filtered'));
     }
 
-    //--------------------------------------------------------------------------
-    //Admin Sales
-    //--------------------------------------------------------------------------
-
-    public function omsetGlobal()
-    {
-        $listSales = Sales::all();
-        //mengambil tanggal awal dan tanggal akhir dari bulan ini
-        $startDate = now()->startOfMonth();
-        $endDate = now()->endOfMonth();
-
-        //menyimpan tanggal menjadi array
-        $dateRange = [];
-        $date = $startDate;
-        while($date->lte($endDate)){
-            $dateRange[] = $date->format('Y-m-d');
-            $date->addDay();
-        }
-
-        //mengambil total omset per hari dari seluru sales
-        $omsetPerHari = [];
-        foreach($dateRange as $date){
-            $omset = Antrian::whereDate('created_at', $date)->sum('omset');
-            $omsetPerHari[] = $omset;
-        }
-
-        return view('page.admin-sales.omset-global', compact('listSales', 'omsetPerHari', 'dateRange'));
-    }
-
     public function downloadPrintFile($id){
         $antrian = Antrian::where('id', $id)->first();
         $file = $antrian->order->file_cetak;
@@ -340,154 +295,182 @@ class AntrianController extends Controller
         return response()->download($path);
     }
 
-     public function store(Request $request)
-     {
-        //Mencari data order berdasarkan id order yang diinputkan
-        $order = Order::where('id', $request->input('idOrder'))->first();
-        $ticketOrder = $order->ticket_order;
+    public function store(Request $request)
+    {        
+        try {
+            DB::beginTransaction();
+            
+            // Validate all inputs first
+            $validated = $request->validate([
+                'nama' => 'required|exists:customers,id',
+                'namaPekerjaan' => 'required|exists:jobs,id', 
+                'jenisPekerjaan' => 'required',
+                'keterangan' => 'required|string',
+                'platformIklan' => 'required|exists:platforms,id',
+                'hargaProduk' => 'required|string',
+                'qty' => 'required|integer|min:1',
+                'jenisPembayaran' => 'required|string',
+                'jumlahPembayaran' => 'required|string',
+                'statusPembayaran' => 'required|in:DP,Lunas,Belum Bayar',
+                'biayaPengiriman' => 'nullable|string',
+                'biayaPemasangan' => 'nullable|string',
+                'biayaPengemasan' => 'nullable|string', 
+                'alamatPengiriman' => 'nullable|string',
+                'totalOmset' => 'required',
+                'idOrder' => 'required|exists:orders,id',
+                'namaDesain' => 'required|string',
+                'desainer' => 'required|string',
+                'sales_id' => 'required|exists:sales,id',
+                'ticket_order' => 'required|unique:antrians,ticket_order',
+                'accDesain' => 'required|file|mimes:jpeg,png,jpg,gif,webp,heic,heif,pdf|max:10240',
+                'buktiPembayaran' => 'required_if:jenisPembayaran,Transfer BCA,Transfer BNI,Transfer BRI,Transfer Mandiri,Transfer BSI|file|mimes:jpeg,png,jpg,gif,webp,heic,heif,pdf|max:10240',
+                'filePO' => 'nullable|file|mimes:pdf,doc,docx|max:10240'
+            ]);
 
-        //Melakukan Check Antrian
-        $checkAntrian = Antrian::where('ticket_order', $ticketOrder)->first();
-        if($checkAntrian){
-            return redirect()->back()->with('error', 'Data antrian sudah ada !');
-        }
+            // Check if order exists and is not already in queue
+            $order = Order::findOrFail($validated['idOrder']);
+            $ticketOrder = $order->ticket_order;
+            
+            if(Antrian::where('ticket_order', $ticketOrder)->exists()) {
+                throw new \Exception('Data antrian sudah ada!');
+            }
 
-        //Mengambil data customer berdasarkan nama customer yang diinputkan
-        $idCustomer = Customer::find($request->input('nama'));
+            // Get customer
+            $customer = Customer::findOrFail($validated['nama']);
 
-
-        //Jika ada request file bukti pembayaran, maka simpan file tersebut
-        if($request->file('buktiPembayaran')){
-            $buktiPembayaran = $request->file('buktiPembayaran');
-            $namaBuktiPembayaran = $buktiPembayaran->getClientOriginalName();
-            $namaBuktiPembayaran = time() . '_' . $namaBuktiPembayaran;
-            $path = 'bukti-pembayaran/' . $namaBuktiPembayaran;
-            Storage::disk('public')->put($path, file_get_contents($buktiPembayaran));
-        }else{
+            // Handle file uploads with proper error handling
+            $uploadedFiles = [];
+            
+            // Handle bukti pembayaran
             $namaBuktiPembayaran = null;
-        }
-
-            //Membuat payment baru dan menyimpan data pembayaran
-            $payment = new Payment();
-            $payment->ticket_order = $ticketOrder;
-            $totalPembayaran = str_replace(['Rp ', '.'], '', $request->input('totalPembayaran'));
-            $pembayaran = str_replace(['Rp ', '.'], '', $request->input('jumlahPembayaran'));
-
-            // menyimpan inputan biaya jasa pengiriman
-            if($request->input('biayaPengiriman') == null){
-                $biayaPengiriman = 0;
-            }else{
-                $biayaPengiriman = str_replace(['Rp ', '.'], '', $request->input('biayaPengiriman'));
+            if($request->hasFile('buktiPembayaran')) {
+                $file = $request->file('buktiPembayaran');
+                $namaBuktiPembayaran = time() . '_' . $file->getClientOriginalName();
+                $uploadedFiles[] = [
+                    'path' => 'bukti-pembayaran/' . $namaBuktiPembayaran,
+                    'content' => file_get_contents($file)
+                ];
             }
 
-            // menyimpan inputan biaya jasa pemasangan
-            if($request->input('biayaPemasangan') == null){
-                $biayaPemasangan = 0;
-            }else{
-                $biayaPemasangan = str_replace(['Rp ', '.'], '', $request->input('biayaPemasangan'));
+            // Handle PO file
+            $namaPurchaseOrder = null; 
+            if($request->hasFile('filePO')) {
+                $file = $request->file('filePO');
+                $namaPurchaseOrder = time() . '_' . $file->getClientOriginalName();
+                $uploadedFiles[] = [
+                    'path' => 'purchase-order/' . $namaPurchaseOrder,
+                    'content' => file_get_contents($file)
+                ];
             }
 
-            // menyimpan inputan biaya jasa pengemasan
-            if($request->input('biayaPengemasan') == null){
-                $biayaPengemasan = 0;
-            }else{
-                $biayaPengemasan = str_replace(['Rp ', '.'], '', $request->input('biayaPengemasan'));
+            // Handle ACC design
+            $namaAccDesain = null;
+            if($request->hasFile('accDesain')) {
+                $file = $request->file('accDesain');
+                $namaAccDesain = time() . '_' . $file->getClientOriginalName();
+                $uploadedFiles[] = [
+                    'path' => 'acc-desain/' . $namaAccDesain,
+                    'content' => file_get_contents($file)
+                ];
             }
 
-            // menyimpan inputan sisa pembayaran
-            $sisaPembayaran = str_replace(['Rp ', '.'], '', $request->input('sisaPembayaran'));
+            // Format currency inputs
+            $formatCurrency = function($value) {
+                return (int) str_replace(['Rp ', '.'], '', $value ?: '0');
+            };
 
-            // Menyimpan file purcase order
-            if($request->file('filePO')){
-                $purchaseOrder = $request->file('filePO');
-                $namaPurchaseOrder = $purchaseOrder->getClientOriginalName();
-                $namaPurchaseOrder = time() . '_' . $namaPurchaseOrder;
-                $path = 'purchase-order/' . $namaPurchaseOrder;
-                Storage::disk('public')->put($path, file_get_contents($purchaseOrder));
-            }else{
-                $namaPurchaseOrder = null;
+            $payment = new Payment([
+                'ticket_order' => $ticketOrder,
+                'total_payment' => $formatCurrency($request->subtotal),
+                'payment_amount' => $formatCurrency($request->jumlahPembayaran),
+                'shipping_cost' => $formatCurrency($request->biayaPengiriman),
+                'installation_cost' => $formatCurrency($request->biayaPemasangan),
+                'packing_cost' => $formatCurrency($request->biayaPengemasan),
+                'remaining_payment' => $formatCurrency($request->sisaTagihan),
+                'payment_method' => $validated['jenisPembayaran'],
+                'payment_status' => $validated['statusPembayaran'],
+                'payment_proof' => $namaBuktiPembayaran,
+                'checked_status' => '0',
+                'checked_by' => null
+            ]);
+
+            // Save files only after validation passes
+            foreach($uploadedFiles as $file) {
+                Storage::disk('public')->put($file['path'], $file['content']);
             }
 
-            $payment->total_payment = $totalPembayaran;
-            $payment->payment_amount = $pembayaran;
-            $payment->shipping_cost = $biayaPengiriman;
-            $payment->installation_cost = $biayaPemasangan;
-            $payment->remaining_payment = $sisaPembayaran;
-            $payment->payment_method = $request->input('jenisPembayaran');
-            $payment->payment_status = $request->input('statusPembayaran');
-            $payment->payment_proof = $namaBuktiPembayaran;
+            // Update order
+            $order->update([
+                'acc_desain' => $namaAccDesain,
+                'toWorkshop' => 1
+            ]);
+
+            // Calculate omset
+            $hargaProduk = $formatCurrency($request->hargaProduk);
+            $qty = (int) $validated['qty'];
+            $biayaPemasangan = $formatCurrency($request->biayaPemasangan);
+            $biayaPengemasan = $formatCurrency($request->biayaPengemasan);
+            
+            $omset = ($hargaProduk * $qty) + $biayaPemasangan + $biayaPengemasan;
+
+            // Create antrian
+            $antrian = Antrian::create([
+                'ticket_order' => $ticketOrder,
+                'sales_id' => $validated['sales_id'],
+                'customer_id' => $customer->id,
+                'job_id' => $validated['namaPekerjaan'],
+                'note' => $validated['keterangan'],
+                'omset' => $omset,
+                'qty' => $qty,
+                'order_id' => $validated['idOrder'],
+                'platform_id' => $validated['platformIklan'],
+                'alamat_pengiriman' => $validated['alamatPengiriman'],
+                'file_po' => $namaPurchaseOrder,
+                'harga_produk' => $hargaProduk,
+                'packing_cost' => $biayaPengemasan,
+            ]);
+
+            // Save payment
             $payment->save();
 
+            // Update customer order frequency
+            $latestAntrian = Antrian::where('customer_id', $antrian->customer_id)
+                ->where('id', '!=', $antrian->id)
+                ->latest()
+                ->first();
 
-        $accDesain = $request->file('accDesain');
-        $namaAccDesain = $accDesain->getClientOriginalName();
-        $namaAccDesain = time() . '_' . $namaAccDesain;
-        $path = 'acc-desain/' . $namaAccDesain;
-        Storage::disk('public')->put($path, file_get_contents($accDesain));
-
-        $order->acc_desain = $namaAccDesain;
-        $order->toWorkshop = 1;
-        $order->save();
-
-        $hargaProduk = str_replace(['Rp ', '.'], '', $request->input('hargaProduk'));
-        $omset = ((int)$hargaProduk * (int)$request->input('qty')) + (int)$biayaPemasangan + (int)$biayaPengemasan;
-
-        $antrian = new Antrian();
-        $antrian->ticket_order = $ticketOrder;
-        $antrian->sales_id = $request->input('sales');
-        $antrian->customer_id = $idCustomer->id;
-        $antrian->job_id = $request->input('namaPekerjaan');
-        $antrian->note = $request->input('keterangan');
-        $antrian->omset = $omset;
-        $antrian->qty = $request->input('qty') ?? 1;
-        $antrian->order_id = $request->input('idOrder');
-        $antrian->platform_id = $request->input('platformIklan');
-        if($request->input('alamatPengiriman') != null){
-            $antrian->alamat_pengiriman = $request->input('alamatPengiriman');
-        }
-        if($request->input('filePO')){
-            $antrian->file_po = $namaPurchaseOrder;
-        }
-        $antrian->harga_produk = $hargaProduk;
-        $antrian->packing_cost = $biayaPengemasan;
-        $antrian->save();
-
-        $latestAntrian = Antrian::where('customer_id', $antrian->customer_id)->latest()->first();
-        if ($latestAntrian) {
-            $latestAntrian = $latestAntrian->created_at->format('d-m-Y');
-        } else {
-            $latestAntrian = null; // Atur default jika tidak ada antrian sebelumnya
-        }
-        $antrianNow = $antrian->created_at->format('d-m-Y');
-        if($antrian){
-            if($antrianNow != $latestAntrian || $latestAntrian === null || $idCustomer->frekuensi_order == 0){
-                $repeat = $idCustomer->frekuensi_order + 1;
-                $idCustomer->frekuensi_order = $repeat;
-                $idCustomer->save();
+            if (!$latestAntrian ||
+                $antrian->created_at->format('d-m-Y') != $latestAntrian->created_at->format('d-m-Y') ||
+                $customer->frekuensi_order == 0) {
+                $customer->increment('frekuensi_order');
             }
+
+            // Notify admin
+            $admin = User::where('role', 'admin')->first();
+            if ($admin) {
+                $admin->notify(new AntrianWorkshop($antrian, $order, $payment));
+            }
+
+            DB::commit();
+
+            return redirect()->route('antrian.index')
+                ->with('success', 'Data antrian berhasil ditambahkan!');
+
+        } catch (\Exception $e) {
+            DB::rollBack();
+
+            // Clean up uploaded files if any error occurs
+            if(isset($uploadedFiles)) {
+                foreach($uploadedFiles as $file) {
+                    Storage::disk('public')->delete($file['path']);
+                }
+            }
+
+            return redirect()->back()
+                ->with('error', 'Terjadi kesalahan: ' . $e->getMessage())
+                ->withInput();
         }
-
-        $user = User::where('role', 'admin')->first();
-        if($user != 'rekanan'){
-            $user->notify(new AntrianWorkshop($antrian, $order, $payment));
-        }
-
-        // // Menampilkan push notifikasi saat selesai
-        // $beamsClient = new \Pusher\PushNotifications\PushNotifications(array(
-        //     "instanceId" => "0958376f-0b36-4f59-adae-c1e55ff3b848",
-        //     "secretKey" => "9F1455F4576C09A1DE06CBD4E9B3804F9184EF91978F3A9A92D7AD4B71656109",
-        // ));
-
-        // $publishResponse = $beamsClient->publishToInterests(
-        //     array('admin'),
-        //     array("web" => array("notification" => array(
-        //       "title" => "📣 Cek sekarang, ada antrian baru !",
-        //       "body" => "Cek antrian workshop sekarang, jangan sampai lupa diantrikan ya !",
-        //     )),
-        // ));
-
-        return redirect()->route('antrian.index')->with('success', 'Data antrian berhasil ditambahkan!');
-     }
+    }
 
     public function edit($id)
     {
@@ -555,64 +538,6 @@ class AntrianController extends Controller
         $antrian->admin_note = $request->input('catatan');
         $antrian->save();
 
-        // // Menampilkan push notifikasi saat selesai
-        // $beamsClient = new \Pusher\PushNotifications\PushNotifications(array(
-        //     "instanceId" => "0958376f-0b36-4f59-adae-c1e55ff3b848",
-        //     "secretKey" => "9F1455F4576C09A1DE06CBD4E9B3804F9184EF91978F3A9A92D7AD4B71656109",
-        // ));
-
-        // $users = [];
-
-        // foreach($request->input('operator') as $operator){
-        //     $user = 'user-' . $operator;
-        //     $users[] = $user;
-        // }
-
-        // foreach($request->input('finisher') as $finisher){
-        //     $user = 'user-' . $finisher;
-        //     $users[] = $user;
-        // }
-
-        // foreach($request->input('quality') as $quality){
-        //     $user = 'user-' . $quality;
-        //     $users[] = $user;
-        // }
-        // if($request->isEdited == 0){
-        //     foreach($users as $user){
-        //         $publishResponse = $beamsClient->publishToUsers(
-        //             array($user),
-        //             array("web" => array("notification" => array(
-        //             "title" => "📣 Cek sekarang, ada antrian baru !",
-        //             "body" => "Cek pekerjaan baru sekarang, cepat kerjakan biar cepet pulang !",
-        //             )),
-        //         ));
-
-        //         // $user = str_replace('user-', '', $user);
-        //         // $user = User::find($user);
-        //         // if($user != 'rekanan'){
-        //         //     $user->notify(new AntrianDiantrikan($antrian));
-        //         // }
-        //     }
-        // }else{
-        //     foreach($users as $user){
-        //         if($user != 'user-rekananSBY' || $user != 'user-rekananKDR' || $user != 'user-rekananMLG' || $user != 'user-rekananSDJ'){
-        //             $publishResponse = $beamsClient->publishToUsers(
-        //                 array($user),
-        //                 array("web" => array("notification" => array(
-        //                 "title" => "📣 Hai, ada update antrian!",
-        //                 "body" => "Ada perubahan pada antrian " . $antrian->ticket_order . " (" . $antrian->order->title ."), cek sekarang !",
-        //                 )),
-        //             ));
-        //         }
-
-        //         // $user = str_replace('user-', '', $user);
-        //         // $user = User::find($user);
-        //         // if($user != 'rekanan'){
-        //         //     $user->notify(new AntrianDiantrikan($antrian));
-        //         // }
-        //     }
-        // }
-
         return redirect()->route('antrian.index')->with('success-update', 'Data antrian berhasil diupdate!');
     }
 
@@ -646,22 +571,7 @@ class AntrianController extends Controller
             return redirect()->route('antrian.index')->with('error-delete', 'Data antrian gagal dihapus!');
         }
     }
-    //--------------------------------------------------------------------------
-
-    public function design(){
-        //Melarang akses langsung ke halaman ini sebelum login
-        if (!auth()->check()) {
-            return redirect()->route('auth.login')->with('belum-login', 'Silahkan login terlebih dahulu');
-        }
-
-        $list_desain = AntrianDesain::get();
-        return view('antriandesain.index', compact('list_desain'));
-    }
-
-    public function tambahDesain(){
-        $list_antrian = Antrian::get();
-        return view('antriandesain.create', compact('list_antrian'));
-    }
+//--------------------------------------------------------------------------
 
 //fungsi untuk menggunggah & menyimpan file gambar dokumentasi
     public function showDokumentasi($id){

@@ -40,7 +40,7 @@
                 </div>
                 <div class="form-group mt-1">
                     <label class="form-label" for="sisaPembayaran{{ $antrian->id }}">Sisa Pembayaran</label>
-                    <input class="form-control sisaPembayaran" type="text" id="sisaPembayaran{{ $antrian->id }}" name="sisaPembayaran" value="Rp {{ number_format($antrian->payment->remaining_payment, 0, ',', '.') }}" disabled>
+                    <input class="form-control sisaPembayaran" type="text" id="sisaPembayaran{{ $antrian->id }}" name="sisaPembayaran" value="Rp {{ number_format($antrian->payment->remaining_payment ?? 0, 0, ',', '.') }}" disabled>
                 </div>
         </div>
         <div class="modal-footer justify-content-between">

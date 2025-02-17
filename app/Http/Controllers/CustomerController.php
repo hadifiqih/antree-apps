@@ -14,7 +14,7 @@ class CustomerController extends Controller
     }
     public function search(Request $request)
     {
-        $data = Customer::where('nama', 'LIKE', "%".request('q')."%")->get();
+        $data = Customer::where('nama', 'LIKE', "%".request('q')."%")->where('sales_id', auth()->user()->sales->id)->limit(10)->get();
         return response()->json($data);
     }
 
@@ -49,13 +49,17 @@ class CustomerController extends Controller
             $customer->infoPelanggan = $request->modalInfoPelanggan;
         }
 
-	if($request->provinsi_id){
-		$customer->provinsi_id = $request->provinsi_id;
-	}
+        if($request->provinsi_id){
+            $customer->provinsi_id = $request->provinsi_id;
+        }
 
-	if($request->kota_id){
-		$customer->kota_id = $request->kota_id;
-	}
+        if($request->kota_id){
+            $customer->kota_id = $request->kota_id;
+        }
+
+        if($request->sales_id){
+            $customer->sales_id = $request->sales_id;
+        }
 
         $customer->save();
 

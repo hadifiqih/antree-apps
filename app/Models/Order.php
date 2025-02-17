@@ -12,6 +12,26 @@ class Order extends Model
 
     protected $table ='orders';
 
+    protected $fillable = [
+        'ticket_order',
+        'title',
+        'job_id',
+        'sales_id',
+        'description',
+        'employee_id',
+        'status',
+        'is_priority',
+        'ada_revisi',
+        'type_work',
+        'desain',
+        'acc_desain',
+        'file_cetak',
+        'link_file',
+        'time_taken',
+        'time_end',
+        'toWorkshop'
+    ];
+
     public function employee(){
         return $this->belongsTo(Employee::class);
     }

@@ -102,15 +102,15 @@
                                 </tr>
                                 <tr>
                                     <th>Biaya Pasang</th>
-                                    <td>Rp {{number_format($antrian->payment->installation_cost, 0,',','.') ?? 0}}</td>
+                                    <td>Rp {{number_format($antrian->payment->installation_cost ?? 0, 0,',','.')}}</td>
                                 </tr>
                                 <tr>
                                     <th>Biaya Pengiriman</th>
-                                    <td>Rp {{number_format($antrian->payment->shipping_cost, 0,',','.') ?? 0}}</td>
+                                    <td>Rp {{number_format($antrian->payment->shipping_cost ?? 0, 0,',','.')}}</td>
                                 </tr>
                                 <tr>
                                     <th>Biaya Packing</th>
-                                    <td>Rp {{number_format($antrian->packing_cost, 0,',','.') ?? 0}}</td>
+                                    <td>Rp {{number_format($antrian->packing_cost ?? 0, 0,',','.')}}</td>
                                 </tr>
                             </table>
                             <h6 class="mt-3">Spesifikasi:</h6>
@@ -242,31 +242,61 @@
                     <div class="card">
                         <div class="card-header">
                             <h6 class="card-title">Keterangan Pembayaran</h6>
-                            @if($antrian->payment->payment_proof != null)
-                                <a href="{{ asset('storage/bukti-pembayaran/'. $antrian->payment->payment_proof) }}" class="card-tools right btn btn-sm btn-primary">Lihat Bukti Pembayaran</a>
-                            @endif
                         </div>
                         <div class="card-body">
-                            <table class="table table-borderless">
+                            <table class="table table-bordered">
                                 <thead>
                                     <tr>
+                                        <th>Tanggal Pembayaran</th>
                                         <th>Metode Pembayaran</th>
-                                        <td>{{ $antrian->payment->payment_method }}</td>
-                                    </tr>
-                                    <tr>
-                                        <th>Jumlah Dibayarkan</th>
-                                        <td>Rp {{ number_format($antrian->payment->payment_amount, 0,',','.') }}</td>
-                                    </tr>
-                                    <tr>
-                                        <th>Sisa Pembayaran</th>
-                                        <td>Rp {{ number_format($antrian->payment->remaining_payment, 0,',','.') }}</td>
-                                    </tr>
-                                    <tr>
-                                        <th>Status Pembayaran</th>
-                                        <td>{{ $antrian->payment->payment_status }}</td>
+                                        <th>Nominal</th>
+                                        <th>Status</th>
+                                        <th>Bukti Pembayaran</th>
                                     </tr>
                                 </thead>
+                                <tbody>
+                                    @foreach($antrian->payments as $payment)
+                                    <tr>
+                                        <td>{{ $payment->created_at }}</td>
+                                        <td>{{ $payment->payment_method }}</td>
+                                        <td>Rp {{ number_format($payment->payment_amount, 0,',','.') }}</td>
+                                        <td>
+                                            @if($payment->checked_status == '0' || $payment->checked_status == null)
+                                            <span class="badge badge-warning p-2 text-sm">Menunggu Pengecekan</span>
+                                            @elseif($payment->checked_status == '1')
+                                            <span class="badge badge-success">Diterima</span>
+                                            @elseif($payment->checked_status == '2')
+                                            <span class="badge badge-danger">Ditolak</span>
+                                            @endif
+                                        </td>
+                                        <td>
+                                            @if($payment->payment_proof != null)
+                                            <button type="button" class="btn btn-sm btn-primary" data-toggle="modal" data-target="#paymentModal{{ $payment->id }}">
+                                                Lihat Bukti
+                                            </button>
+                                            @else
+                                            Tidak Ditemukan
+                                            @endif
+                                    </tr>
+                                    @endforeach
                             </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Modal -->
+            <div class="modal fade" id="paymentModal{{ $payment->id }}" tabindex="-1" role="dialog" aria-labelledby="paymentModalLabel" aria-hidden="true">
+                <div class="modal-dialog modal-lg" role="document">
+                    <div class="modal-content">
+                        <div class="modal-header">
+                            <h5 class="modal-title" id="paymentModalLabel">Bukti Pembayaran</h5>
+                            <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                                <span aria-hidden="true">&times;</span>
+                            </button>
+                        </div>
+                        <div class="modal-body text-center">
+                            <img src="{{ asset('storage/bukti-pembayaran/'. $payment->payment_proof) }}" class="img-fluid" alt="Bukti Pembayaran">
                         </div>
                     </div>
                 </div>
